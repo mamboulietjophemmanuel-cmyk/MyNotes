@@ -1,6 +1,7 @@
 <div align="center">
 
 <!-- EMPLACEMENT DU LOGO / BANNIÈRE (Nous l'ajouterons à la prochaine étape) -->
+<img width="1803" height="576" alt="MyNotes Banner" src="https://github.com/user-attachments/assets/51d0d9ce-f465-4c4f-9f59-d350b59dfdc7" />
 
 <!-- <img src="docs/assets/banner.png" alt="MyNotes Banner" width="100%" /> -->
 
