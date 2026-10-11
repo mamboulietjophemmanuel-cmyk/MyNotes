@@ -1,9 +1,7 @@
 <div align="center">
 
-<!-- EMPLACEMENT DU LOGO / BANNIÈRE (Nous l'ajouterons à la prochaine étape) -->
-<img width="1803" height="576" alt="MyNotes Banner" src="https://github.com/user-attachments/assets/51d0d9ce-f465-4c4f-9f59-d350b59dfdc7" />
-
-<!-- <img src="docs/assets/banner.png" alt="MyNotes Banner" width="100%" /> -->
+<!-- BANNIÈRE VECTORIELLE SVG (AVEC LE VRAI LOGO MYNOTES) -->
+<img src="docs/assets/banner.svg" alt="MyNotes Banner" width="100%" />
 
 <div align="center">
   <table border="0" style="border: none; border-collapse: collapse; background: transparent;">
@@ -21,7 +19,8 @@
 ### **L'éditeur Markdown hybride (WYSIWYG), scientifique et minimaliste.**
 *Inspiré par l'élégance de GNOME Libadwaita et la fluidité de Typora.*
 
-[![Version](https://img.shields.io/badge/version-0.1.1-3584e4?style=for-the-badge)](https://github.com/)
+[![Version](https://img.shields.io/badge/version-0.1.1-3584e4?style=for-the-badge)](https://github.com/mamboulietjophemmanuel-cmyk/MyNotes)
+[![Platform](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#🚀-installation--développement)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-FFC131?style=for-the-badge&logo=tauri&logoColor=black)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -29,7 +28,9 @@
 
 <br />
 
-[**⬇️ Télécharger pour Windows / Linux / macOS**](#🚀-installation--développement) · [**✨ Découvrir les fonctionnalités**](#-fonctionnalités-principales) · [**⌨️ Raccourcis clavier**](#️-raccourcis-clavier)
+[**⬇️ Télécharger pour Windows**](#🚀-installation--développement) · [**✨ Découvrir les fonctionnalités**](#-fonctionnalités-principales) · [**⌨️ Raccourcis clavier**](#️-raccourcis-clavier)
+
+<sub>💡 *Installateur natif disponible pour **Windows** (`.exe` / `.msi`). Les versions pré-compilées pour **Linux** et **macOS** arrivent bientôt (déjà [compilables depuis les sources](#🚀-installation--développement)).*</sub>
 
 <br />
 
@@ -149,28 +150,36 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 
 ## 🚀 Installation & Développement
 
-### Prérequis
+### 📥 Téléchargement direct (Windows)
+* **Windows (10 / 11)** : Téléchargez directement le dernier installateur `.exe` ou `.msi` depuis l'onglet [**Releases**](https://github.com/mamboulietjophemmanuel-cmyk/MyNotes/releases).
+* **Linux & macOS** : Les installateurs pré-compilés (`.deb`, `.AppImage`, `.dmg`) arrivent bientôt ! En attendant, vous pouvez compiler l'application nativement depuis les sources en quelques secondes (voir ci-dessous).
+
+---
+
+### 🛠️ Compiler depuis les sources (Windows, Linux, macOS)
+
+#### Prérequis
 * **Node.js** (v18+) ou **Bun**
 * **Rust & Cargo** *(uniquement si vous souhaitez compiler l'exécutable de bureau natif avec Tauri)*
 
-### 1. Cloner le dépôt et installer les dépendances
+#### 1. Cloner le dépôt et installer les dépendances
 ```bash
 git clone https://github.com/mamboulietjophemmanuel-cmyk/MyNotes.git
 cd MyNotes
 npm install
 ```
 
-### 2. Lancer en mode développement (Web / Aperçu rapide)
+#### 2. Lancer en mode développement (Web / Aperçu rapide)
 ```bash
 npm run dev
 ```
 
-### 3. Lancer ou compiler l'application de bureau native (Tauri)
+#### 3. Lancer ou compiler l'application de bureau native (Tauri)
 ```bash
 # Mode développement Desktop
 npx tauri dev
 
-# Générer l'installateur (.msi / .exe sur Windows, .deb / .AppImage sur Linux, .dmg sur macOS)
+# Générer l'installateur pour votre système (.msi / .exe sur Windows, .deb / .AppImage sur Linux, .dmg sur macOS)
 npx tauri build
 ```
 
