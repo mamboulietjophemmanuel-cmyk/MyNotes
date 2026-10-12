@@ -2,6 +2,7 @@ import React from 'react';
 import katex from 'katex';
 import { HeadingItem, MediaAsset } from '../types/note';
 import { Check, Copy, Maximize2, Image as ImageIcon } from 'lucide-react';
+import { MermaidBlock } from '../components/MermaidBlock';
 
 export function extractHeadings(markdown: string): HeadingItem[] {
   const lines = markdown.split('\n');
@@ -322,6 +323,16 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         i++;
       }
       i++; // consume closing ```
+      if (lang.toLowerCase() === 'mermaid') {
+        elements.push(
+          <MermaidBlock
+            key={`mermaid-${i}`}
+            code={codeLines.join('\n')}
+            isEditable={false}
+          />
+        );
+        continue;
+      }
       elements.push(
         <CodeBlockView key={`code-${i}`} code={codeLines.join('\n')} language={lang} />
       );

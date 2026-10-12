@@ -107,7 +107,26 @@ Le sous-système d'entrée/sortie applique une file d'attente M/M/1 avec amortis
 
 $$W = \\frac{1}{\\mu - \\lambda} \\quad \\text{avec} \\quad \\rho = \\frac{\\lambda}{\\mu} < 1$$
 
-## 2. Comparatif des performances par opération
+## 2. Topologie du pipeline d'édition & synchronisation
+
+\`\`\`mermaid
+flowchart LR
+    subgraph UI["Interface Utilisateur"]
+        E[Éditeur Typora-like] --> P[Détection de Blocs]
+        P --> M[Moteur Mermaid.js]
+        P --> K[Moteur KaTeX]
+    end
+    subgraph Core["Noyau d'État"]
+        E --> S[Gestionnaire Multi-Onglets]
+        S --> D[Détection Modifié isDirty]
+    end
+    subgraph IO["Persistance Atomique"]
+        D --> W[Stockage Localisé]
+        W --> F[Fichiers Markdown .md]
+    end
+\`\`\`
+
+## 3. Comparatif des performances par opération
 
 | Opération fichier | Taille moyenne | Temps médian (p50) | Percentile p99 | Empreinte mémoire |
 | :--- | :---: | :---: | :---: | :---: |
@@ -116,7 +135,7 @@ $$W = \\frac{1}{\\mu - \\lambda} \\quad \\text{avec} \\quad \\rho = \\frac{\\lam
 | Dépôt d'image (Drag & Drop) | 850 Ko | 6.2 ms | 14.0 ms | 4.8 Mo |
 | Exportation projet complet | 2.4 Mo | 11.4 ms | 22.5 ms | 6.2 Mo |
 
-## 3. Extrait de configuration du parseur
+## 4. Extrait de configuration du parseur
 
 \`\`\`json
 {
@@ -125,12 +144,13 @@ $$W = \\frac{1}{\\mu - \\lambda} \\quad \\text{avec} \\quad \\rho = \\frac{\\lam
   "markdown": {
     "gfmTables": true,
     "katexMath": true,
+    "mermaidDiagrams": true,
     "dragAndDropImages": true
   }
 }
 \`\`\`
 
-## 4. Liste de contrôle de déploiement
+## 5. Liste de contrôle de déploiement
 
 - [x] Synchronisation automatique avec le thème Windows (Clair / Sombre)
 - [x] Gestion multi-onglets de type \`AdwTabBar\` avec aperçu en grille
@@ -171,6 +191,21 @@ Utilisez le bouton **Formule** dans la barre d'outils pour ouvrir l'assistant d'
 
 - **Images (\`.png\`, \`.jpg\`, \`.webp\`, \`.svg\`)** : Faites glisser une image depuis l'Explorateur Windows directement dans la zone d'édition (ou collez-la avec \`Ctrl + V\`). Vous pouvez ajuster sa largeur facilement avec la syntaxe \`![Légende|75%](asset://id)\` ou en cliquant sur l'image dans l'aperçu.
 - **Documents Markdown (\`.md\`)** : Déposez un ou plusieurs fichiers \`.md\` n'importe où sur la fenêtre pour les ouvrir instantanément dans de nouveaux onglets.
+
+## 4. Diagrammes interactifs Mermaid (Flowchart, Séquence, Mindmap, Gantt)
+
+Insérez des blocs de code \`mermaid\` pour générer instantanément des diagrammes visuels vectoriels :
+
+\`\`\`mermaid
+mindmap
+  root((MyNotes))
+    Rendu Typora
+    Formules KaTeX
+    Diagrammes Mermaid
+    Multi-onglets Windows
+\`\`\`
+
+Cliquez sur le bouton **Diagramme** dans la barre d'outils pour choisir parmi des modèles prêts à l'emploi.
 `,
   },
   {

@@ -18,7 +18,9 @@ import {
   Quote,
   WrapText,
   Move,
+  Workflow,
 } from 'lucide-react';
+import { MermaidBlock } from './MermaidBlock';
 
 export type ImageWrapMode = 'break' | 'wrap';
 export type ImageWrapSide = 'left' | 'right';
@@ -1597,6 +1599,7 @@ interface TyporaEditorProps {
   onPasteImage?: (e: React.ClipboardEvent<HTMLElement>) => void;
   onOpenTableModal?: () => void;
   onOpenFormulaModal?: () => void;
+  onOpenDiagramModal?: () => void;
   onTriggerImageUpload?: () => void;
 }
 
@@ -1609,6 +1612,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
   onPasteImage,
   onOpenTableModal,
   onOpenFormulaModal,
+  onOpenDiagramModal,
   onTriggerImageUpload,
 }) => {
   // Keep blocks in state while editing so clearing a block's text never causes it to vanish mid-typing
@@ -1948,7 +1952,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
           );
         }
 
-        // 5. CODE BLOCK
+        // 5. CODE BLOCK / MERMAID DIAGRAM
         if (block.type === 'code') {
           const lines = block.raw.split('\n');
           const firstLine = lines[0]?.trim() || '```';
@@ -1956,6 +1960,21 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
           const innerCode = lines
             .slice(1, lines[lines.length - 1]?.trim().startsWith('```') ? -1 : undefined)
             .join('\n');
+
+          // If language is mermaid, render with dedicated interactive MermaidBlock
+          if (lang.toLowerCase() === 'mermaid') {
+            return (
+              <MermaidBlock
+                key={block.id}
+                code={innerCode}
+                onChange={(newCode) =>
+                  updateBlockAt(idx, `\`\`\`mermaid\n${newCode}\n\`\`\``)
+                }
+                onDelete={() => deleteBlockAt(idx)}
+                isEditable={true}
+              />
+            );
+          }
 
           return (
             <div
@@ -2297,6 +2316,17 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
           >
             <Sigma className="h-3.5 w-3.5 text-[var(--adw-accent)]" />
             <span>Formule</span>
+          </button>
+        )}
+        {onOpenDiagramModal && (
+          <button
+            type="button"
+            onClick={onOpenDiagramModal}
+            className="adw-btn border border-[var(--adw-border)] bg-[var(--adw-card-bg)] px-2.5 py-1 text-xs text-[var(--adw-fg-secondary)]"
+            title="Insérer un diagramme Mermaid (Flowchart, Séquence, Mindmap, Gantt...)"
+          >
+            <Workflow className="h-3.5 w-3.5 text-[var(--adw-accent)]" />
+            <span>Diagramme</span>
           </button>
         )}
         {onTriggerImageUpload && (

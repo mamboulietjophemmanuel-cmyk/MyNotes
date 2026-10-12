@@ -94,13 +94,29 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 
 ---
 
-### 5. 💻 Blocs de Code & Productivité Développeur
+### 5. 🔀 Diagrammes & Schémas Vectoriels (Mermaid.js)
+* **Rendu vectoriel direct** : Les blocs ` ```mermaid ` sont automatiquement interprétés et rendus sous forme d'illustrations vectorielles SVG interactives.
+* **Assistant & Bibliothèque de modèles** : Insertion en 1 clic de schémas prêts à l'emploi :
+  * **Organigrammes & Flux** (`flowchart TD / LR`)
+  * **Diagrammes de séquence** (`sequenceDiagram`)
+  * **Cartes mentales** (`mindmap`)
+  * **Diagrammes de Gantt & Roadmaps** (`gantt`)
+  * **Diagrammes de classes & Architecture** (`classDiagram`)
+  * **Diagrammes d'états** (`stateDiagram-v2`)
+  * **Graphiques circulaires** (`pie`)
+  * **Arborescences Git** (`gitGraph`)
+* **Outils interactifs intégrés** : Bascule en 1 clic entre vue Rendu et vue Édition côte-à-côte, copie du code, copie du SVG, téléchargement de l'image `.svg` et agrandissement plein écran avec zoom.
+* **Palette adaptative** : Le diagramme s'adapte automatiquement au thème Clair ou Sombre de l'application.
+
+---
+
+### 6. 💻 Blocs de Code & Productivité Développeur
 * **Blocs de code stylisés (` ```langage `)** : Affichage automatique du badge de langage (`python`, `typescript`, `rust`, `sql`, `json`, etc.).
 * **Copie rapide en un clic** : Bouton **Copier** intégré dans l'en-tête de chaque bloc de code avec confirmation visuelle.
 
 ---
 
-### 6. 🗂️ Gestion Multi-Onglets & Sessions Intelligentes
+### 7. 🗂️ Gestion Multi-Onglets & Sessions Intelligentes
 * **Barre d'onglets fluide** : Ouvrez plusieurs documents simultanément, renommez vos notes d'un simple clic sur le titre dans la barre supérieure.
 * **Détection intelligente des brouillons** :
   * Les nouvelles notes vierges (`Sans titre 1.md`) non modifiées se ferment sans fenêtre d'alerte intrusive et libèrent automatiquement leur numéro.

@@ -24,6 +24,7 @@ import {
   Download,
   FolderOpen,
   FileSearch,
+  Workflow,
 } from 'lucide-react';
 import {
   MarkdownDocument,
@@ -36,6 +37,7 @@ import { computeDocumentStats } from './utils/markdownParser';
 import { TyporaEditor } from './components/TyporaEditor';
 import { TableDialog } from './components/TableDialog';
 import { FormulaDialog } from './components/FormulaDialog';
+import { DiagramDialog } from './components/DiagramDialog';
 
 const STORAGE_KEY_DOCS = 'adwnotes_documents_v2';
 const STORAGE_KEY_TABS = 'adwnotes_tabs_v2';
@@ -271,6 +273,7 @@ export default function App() {
 
   const [tableModalOpen, setTableModalOpen] = useState<boolean>(false);
   const [formulaModalOpen, setFormulaModalOpen] = useState<boolean>(false);
+  const [diagramModalOpen, setDiagramModalOpen] = useState<boolean>(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(
     null
   );
@@ -715,6 +718,7 @@ export default function App() {
         setLightboxImage(null);
         setTableModalOpen(false);
         setFormulaModalOpen(false);
+        setDiagramModalOpen(false);
         setOpenPopoverVisible(false);
         setPrimaryMenuOpen(false);
         setInsertPopoverOpen(false);
@@ -1027,6 +1031,17 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     setInsertPopoverOpen(false);
+                    setDiagramModalOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs text-[var(--adw-fg)] hover:bg-[var(--adw-hover-bg)]"
+                >
+                  <Workflow className="h-4 w-4 text-[var(--adw-accent)]" />
+                  <span>Insérer un diagramme Mermaid...</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInsertPopoverOpen(false);
                     imageFileInputRef.current?.click();
                   }}
                   className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs text-[var(--adw-fg)] hover:bg-[var(--adw-hover-bg)]"
@@ -1236,13 +1251,14 @@ export default function App() {
             onPasteImage={handleEditorPaste}
             onOpenTableModal={() => setTableModalOpen(true)}
             onOpenFormulaModal={() => setFormulaModalOpen(true)}
+            onOpenDiagramModal={() => setDiagramModalOpen(true)}
             onTriggerImageUpload={() => imageFileInputRef.current?.click()}
           />
         )}
       </main>
 
       {/* =====================================================================
-          4. MODALS & OVERLAYS (Table Builder, Formula Editor, Lightbox, Toast)
+          4. MODALS & OVERLAYS (Table Builder, Formula Editor, Diagram Builder, Lightbox, Toast)
          ===================================================================== */}
       <TableDialog
         isOpen={tableModalOpen}
@@ -1254,6 +1270,12 @@ export default function App() {
         isOpen={formulaModalOpen}
         onClose={() => setFormulaModalOpen(false)}
         onInsert={(latex) => appendBlockSnippet(latex)}
+      />
+
+      <DiagramDialog
+        isOpen={diagramModalOpen}
+        onClose={() => setDiagramModalOpen(false)}
+        onInsert={(mermaidSnippet) => appendBlockSnippet(mermaidSnippet)}
       />
 
       {/* Fullscreen Image Lightbox */}
