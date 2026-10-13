@@ -26,6 +26,7 @@ import {
   FileSearch,
   Workflow,
   Replace,
+  Minus,
 } from 'lucide-react';
 import {
   MarkdownDocument,
@@ -64,6 +65,7 @@ import {
   joinPath,
   listenFileDrops,
   listenOpenFiles,
+  minimizeWindow,
   openMarkdownFilesDialog,
   readImageFile,
   readOpenedFiles,
@@ -1764,6 +1766,20 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {/* Bouton « Réduire » (application de bureau uniquement : la barre de titre native est désactivée) */}
+          {isTauri() && (
+            <button
+              type="button"
+              onClick={() => {
+                void minimizeWindow();
+              }}
+              className="ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--adw-active-bg)] text-[var(--adw-fg)] transition-colors hover:bg-[var(--adw-fg)]/20"
+              title="Réduire la fenêtre"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+          )}
 
           {/* Iconic GNOME Libadwaita Circular Close Button on the far right */}
           <button

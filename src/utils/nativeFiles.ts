@@ -195,3 +195,9 @@ export async function listenOpenFiles(
   const { listen } = await import('@tauri-apps/api/event');
   return listen<string[]>('open-files', (event) => callback(event.payload));
 }
+
+/** Réduit la fenêtre dans la barre des tâches (la barre de titre native est désactivée). */
+export async function minimizeWindow(): Promise<void> {
+  const { getCurrentWindow } = await import('@tauri-apps/api/window');
+  await getCurrentWindow().minimize();
+}

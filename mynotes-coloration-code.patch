@@ -1,0 +1,393 @@
+diff --git a/README.md b/README.md
+index caa8086..f6c87cf 100644
+--- a/README.md
++++ b/README.md
+@@ -125,6 +125,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux
+ 
+ ### 7. 💻 Blocs de Code & Productivité Développeur
+ * **Blocs de code stylisés (` ```langage `)** : Affichage automatique du badge de langage (`python`, `typescript`, `rust`, `sql`, `json`, etc.).
++* **Coloration syntaxique en direct** : le code est coloré pendant la saisie selon le langage indiqué après les trois accents graves (` ```python `), en thème clair comme en thème sombre. Une quarantaine de langages sont reconnus, avec leurs abréviations courantes : `c`, `cpp` / `c++`, `arduino` / `ino`, `python` / `py`, `java`, `javascript` / `js`, `typescript` / `ts`, `sql`, `bash` / `sh`, `powershell`, `json`, `yaml`, `html` / `xml`, `css` / `scss`, `php`, `rust`, `go`, `kotlin`, `csharp` / `cs`, `latex`, `vhdl`, `verilog`, `x86asm`, etc. Sans langage (ou avec un langage inconnu), le code reste sans couleur. Les lignes longues défilent horizontalement.
+ * **Copie rapide en un clic** : Bouton **Copier** intégré dans l'en-tête de chaque bloc de code avec confirmation visuelle.
+ 
+ ---
+diff --git a/bun.lock b/bun.lock
+index 61407e3..42cdc42 100644
+--- a/bun.lock
++++ b/bun.lock
+@@ -11,6 +11,7 @@
+         "@tauri-apps/plugin-fs": "^2.7.0",
+         "@types/katex": "^0.16.8",
+         "@vitejs/plugin-react": "^6.1.1",
++        "highlight.js": "^11.12.0",
+         "katex": "^0.19.0",
+         "lucide-react": "^0.546.0",
+         "mermaid": "^12.1.0",
+@@ -373,6 +374,8 @@
+ 
+     "hachure-fill": ["hachure-fill@0.5.2", "", {}, "sha512-3GKBOn+m2LX9iq+JC1064cSFprJY4jL1jCXTcpnfER5HYE2l/4EfWSGzkPa/ZDBmYI0ZOEj5VHV/eKnPGkHuOg=="],
+ 
++    "highlight.js": ["highlight.js@11.12.0", "", {}, "sha512-nbfWpyRMcMrPMmDwJB+dhX/eiaPKtc2RB+0QZskqJ3WjRA/FDS0e9hZrx8EC/lbEv8gXy98FcDbNa/dspAaJMg=="],
++
+     "iconv-lite": ["iconv-lite@0.6.3", "", { "dependencies": { "safer-buffer": ">= 2.1.2 < 3.0.0" } }, "sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw=="],
+ 
+     "import-meta-resolve": ["import-meta-resolve@4.2.0", "", {}, "sha512-Iqv2fzaTQN28s/FwZAoFq0ZSs/7hMAHJVX+w8PZl3cY19Pxk6jFFalxQoIfW2826i/fDLXv8IiEZRIT0lDuWcg=="],
+diff --git a/package.json b/package.json
+index 4e890b6..b809c38 100644
+--- a/package.json
++++ b/package.json
+@@ -19,6 +19,7 @@
+     "@tauri-apps/plugin-fs": "^2.7.0",
+     "@types/katex": "^0.16.8",
+     "@vitejs/plugin-react": "^6.1.1",
++    "highlight.js": "^11.12.0",
+     "katex": "^0.19.0",
+     "lucide-react": "^0.546.0",
+     "mermaid": "^12.1.0",
+diff --git a/src/components/HighlightedCodeEditor.tsx b/src/components/HighlightedCodeEditor.tsx
+new file mode 100644
+index 0000000..b449581
+--- /dev/null
++++ b/src/components/HighlightedCodeEditor.tsx
+@@ -0,0 +1,54 @@
++import React, { useMemo } from 'react';
++import { highlightCode } from '../utils/highlight';
++
++interface HighlightedCodeEditorProps {
++  value: string;
++  language: string;
++  onChange: (value: string) => void;
++}
++
++const TEXT_STYLE =
++  'font-mono text-[13px] leading-relaxed whitespace-pre [tab-size:4]';
++
++/**
++ * Zone de saisie de code avec coloration syntaxique en direct.
++ * Principe : une couche colorée (non interactive) est affichée derrière un <textarea> transparent
++ * de même police, même taille et mêmes marges. On tape dans le textarea, on voit la couche colorée.
++ * Pas de retour à la ligne automatique : les lignes longues défilent horizontalement, ce qui garde
++ * les deux couches parfaitement alignées.
++ */
++export const HighlightedCodeEditor: React.FC<HighlightedCodeEditorProps> = ({
++  value,
++  language,
++  onChange,
++}) => {
++  const html = useMemo(() => highlightCode(value, language), [value, language]);
++  // Le retour à la ligne final garantit que la dernière ligne vide garde sa hauteur ; minimum 2 lignes
++  const tail = value.split('\n').length < 2 ? '\n\n' : '\n';
++
++  return (
++    <div className="overflow-x-auto">
++      <div className="relative w-max min-w-full">
++        <div
++          aria-hidden="true"
++          className={`pointer-events-none select-none p-4 text-[var(--adw-fg)] ${TEXT_STYLE}`}
++        >
++          {html !== null ? (
++            <span dangerouslySetInnerHTML={{ __html: html + tail }} />
++          ) : (
++            <span>{value + tail}</span>
++          )}
++        </div>
++        <textarea
++          value={value}
++          onChange={(e) => onChange(e.target.value)}
++          spellCheck={false}
++          autoCapitalize="off"
++          autoCorrect="off"
++          wrap="off"
++          className={`absolute inset-0 h-full w-full resize-none overflow-hidden border-0 bg-transparent p-4 text-transparent caret-[var(--adw-fg)] focus:outline-none ${TEXT_STYLE}`}
++        />
++      </div>
++    </div>
++  );
++};
+diff --git a/src/components/TyporaEditor.tsx b/src/components/TyporaEditor.tsx
+index c321348..e2b7d53 100644
+--- a/src/components/TyporaEditor.tsx
++++ b/src/components/TyporaEditor.tsx
+@@ -21,6 +21,7 @@ import {
+   Workflow,
+ } from 'lucide-react';
+ import { MermaidBlock } from './MermaidBlock';
++import { HighlightedCodeEditor } from './HighlightedCodeEditor';
+ import { SearchMatch } from '../utils/searchEngine';
+ 
+ export type ImageWrapMode = 'break' | 'wrap';
+@@ -2302,14 +2303,12 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
+                   </button>
+                 </div>
+               </div>
+-              <textarea
++              <HighlightedCodeEditor
+                 value={innerCode}
+-                onChange={(e) =>
+-                  updateBlockAt(idx, `\`\`\`${lang}\n${e.target.value}\n\`\`\``)
++                language={lang}
++                onChange={(newCode) =>
++                  updateBlockAt(idx, `\`\`\`${lang}\n${newCode}\n\`\`\``)
+                 }
+-                rows={Math.max(2, innerCode.split('\n').length)}
+-                spellCheck={false}
+-                className="w-full resize-none border-0 bg-transparent p-4 font-mono text-[13px] leading-relaxed text-[var(--adw-fg)] focus:outline-none"
+               />
+             </div>
+           );
+diff --git a/src/index.css b/src/index.css
+index 3ab2bde..befcf2d 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -24,6 +24,17 @@
+   --adw-accent-hover: #1C71D8;
+   --adw-accent-soft: rgba(53, 132, 228, 0.12);
+   --adw-code-bg: #F4F4F6;
++  /* Coloration syntaxique (palette GNOME, thème clair) */
++  --hl-keyword: #8a2fa6;
++  --hl-string: #1a7f4b;
++  --hl-number: #b8470c;
++  --hl-comment: #6e6e76;
++  --hl-function: #1c5fb5;
++  --hl-type: #0e7490;
++  --hl-attr: #9a5b00;
++  --hl-meta: #a3365f;
++  --hl-addition: #1a7f4b;
++  --hl-deletion: #c01c28;
+   --adw-shadow-popover: 0 8px 28px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.25);
+ }
+ 
+@@ -47,6 +58,17 @@
+   --adw-accent-hover: #62A0EA;
+   --adw-accent-soft: rgba(98, 160, 234, 0.18);
+   --adw-code-bg: #28282C;
++  /* Coloration syntaxique (palette GNOME, thème sombre) */
++  --hl-keyword: #dc8add;
++  --hl-string: #8ff0a4;
++  --hl-number: #ffbe6f;
++  --hl-comment: #9a9996;
++  --hl-function: #78aeed;
++  --hl-type: #93ddc2;
++  --hl-attr: #f9f06b;
++  --hl-meta: #f66151;
++  --hl-addition: #8ff0a4;
++  --hl-deletion: #ff938c;
+   --adw-shadow-popover: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.18);
+ }
+ 
+@@ -339,4 +361,76 @@ body {
+   color: #030712 !important;
+ }
+ 
++/* =====================================================================
++   COLORATION SYNTAXIQUE DES BLOCS DE CODE (classes générées par highlight.js)
++   ===================================================================== */
++.hljs-keyword,
++.hljs-selector-tag,
++.hljs-literal,
++.hljs-doctag {
++  color: var(--hl-keyword);
++}
++
++.hljs-string,
++.hljs-regexp,
++.hljs-template-variable,
++.hljs-char.escape_ {
++  color: var(--hl-string);
++}
++
++.hljs-number,
++.hljs-symbol,
++.hljs-bullet {
++  color: var(--hl-number);
++}
++
++.hljs-comment,
++.hljs-quote {
++  color: var(--hl-comment);
++  font-style: italic;
++}
++
++.hljs-title,
++.hljs-title.function_,
++.hljs-section,
++.hljs-selector-id {
++  color: var(--hl-function);
++}
++
++.hljs-type,
++.hljs-built_in,
++.hljs-title.class_,
++.hljs-class .hljs-title,
++.hljs-selector-class {
++  color: var(--hl-type);
++}
+ 
++.hljs-attr,
++.hljs-attribute,
++.hljs-variable,
++.hljs-property,
++.hljs-name {
++  color: var(--hl-attr);
++}
++
++.hljs-meta,
++.hljs-tag,
++.hljs-link {
++  color: var(--hl-meta);
++}
++
++.hljs-addition {
++  color: var(--hl-addition);
++}
++
++.hljs-deletion {
++  color: var(--hl-deletion);
++}
++
++.hljs-emphasis {
++  font-style: italic;
++}
++
++.hljs-strong {
++  font-weight: 700;
++}
+diff --git a/src/utils/highlight.ts b/src/utils/highlight.ts
+new file mode 100644
+index 0000000..f39a700
+--- /dev/null
++++ b/src/utils/highlight.ts
+@@ -0,0 +1,98 @@
++/**
++ * Coloration syntaxique des blocs de code (highlight.js, version « core » + langages choisis,
++ * pour garder l'application légère). Les couleurs sont définies dans index.css (classes .hljs-*).
++ */
++import hljs from 'highlight.js/lib/core';
++
++import arduino from 'highlight.js/lib/languages/arduino';
++import bash from 'highlight.js/lib/languages/bash';
++import c from 'highlight.js/lib/languages/c';
++import cpp from 'highlight.js/lib/languages/cpp';
++import csharp from 'highlight.js/lib/languages/csharp';
++import css from 'highlight.js/lib/languages/css';
++import dart from 'highlight.js/lib/languages/dart';
++import diff from 'highlight.js/lib/languages/diff';
++import dockerfile from 'highlight.js/lib/languages/dockerfile';
++import dos from 'highlight.js/lib/languages/dos';
++import go from 'highlight.js/lib/languages/go';
++import graphql from 'highlight.js/lib/languages/graphql';
++import haskell from 'highlight.js/lib/languages/haskell';
++import ini from 'highlight.js/lib/languages/ini';
++import java from 'highlight.js/lib/languages/java';
++import javascript from 'highlight.js/lib/languages/javascript';
++import json from 'highlight.js/lib/languages/json';
++import kotlin from 'highlight.js/lib/languages/kotlin';
++import latex from 'highlight.js/lib/languages/latex';
++import lua from 'highlight.js/lib/languages/lua';
++import makefile from 'highlight.js/lib/languages/makefile';
++import markdown from 'highlight.js/lib/languages/markdown';
++import matlab from 'highlight.js/lib/languages/matlab';
++import perl from 'highlight.js/lib/languages/perl';
++import php from 'highlight.js/lib/languages/php';
++import powershell from 'highlight.js/lib/languages/powershell';
++import python from 'highlight.js/lib/languages/python';
++import r from 'highlight.js/lib/languages/r';
++import ruby from 'highlight.js/lib/languages/ruby';
++import rust from 'highlight.js/lib/languages/rust';
++import scala from 'highlight.js/lib/languages/scala';
++import scss from 'highlight.js/lib/languages/scss';
++import shell from 'highlight.js/lib/languages/shell';
++import sql from 'highlight.js/lib/languages/sql';
++import swift from 'highlight.js/lib/languages/swift';
++import typescript from 'highlight.js/lib/languages/typescript';
++import verilog from 'highlight.js/lib/languages/verilog';
++import vhdl from 'highlight.js/lib/languages/vhdl';
++import x86asm from 'highlight.js/lib/languages/x86asm';
++import xml from 'highlight.js/lib/languages/xml';
++import yaml from 'highlight.js/lib/languages/yaml';
++
++const LANGUAGES = {
++  arduino, bash, c, cpp, csharp, css, dart, diff, dockerfile, dos, go, graphql,
++  haskell, ini, java, javascript, json, kotlin, latex, lua, makefile, markdown,
++  matlab, perl, php, powershell, python, r, ruby, rust, scala, scss, shell, sql,
++  swift, typescript, verilog, vhdl, x86asm, xml, yaml,
++};
++
++Object.entries(LANGUAGES).forEach(([name, definition]) => {
++  hljs.registerLanguage(name, definition);
++});
++
++// Noms courants que highlight.js ne connaît pas par défaut
++const EXTRA_ALIASES: Record<string, string> = {
++  assembly: 'x86asm',
++  asm: 'x86asm',
++  'objective-c': 'c',
++  'c#': 'csharp',
++  'f#': 'haskell',
++  'node': 'javascript',
++  vue: 'xml',
++  svelte: 'xml',
++  toml: 'ini',
++  powershell5: 'powershell',
++  batch: 'dos',
++  gradle: 'java',
++  tex: 'latex',
++};
++
++/** Nom de langage normalisé (premier mot du « ```langage »), ou null si inconnu. */
++export function resolveLanguage(language: string): string | null {
++  const name = language.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
++  if (!name) return null;
++  if (hljs.getLanguage(name)) return name;
++  const alias = EXTRA_ALIASES[name];
++  return alias && hljs.getLanguage(alias) ? alias : null;
++}
++
++/**
++ * Renvoie le code coloré sous forme de HTML (le texte est échappé par highlight.js),
++ * ou null si le langage est vide ou inconnu : le code s'affiche alors sans couleur.
++ */
++export function highlightCode(code: string, language: string): string | null {
++  const name = resolveLanguage(language);
++  if (!name) return null;
++  try {
++    return hljs.highlight(code, { language: name, ignoreIllegals: true }).value;
++  } catch {
++    return null;
++  }
++}
+diff --git a/src/utils/markdownParser.tsx b/src/utils/markdownParser.tsx
+index a9084cb..5975c7c 100644
+--- a/src/utils/markdownParser.tsx
++++ b/src/utils/markdownParser.tsx
+@@ -3,6 +3,7 @@ import katex from 'katex';
+ import { HeadingItem, MediaAsset } from '../types/note';
+ import { Check, Copy, Maximize2, Image as ImageIcon } from 'lucide-react';
+ import { MermaidBlock } from '../components/MermaidBlock';
++import { highlightCode } from './highlight';
+ 
+ export function extractHeadings(markdown: string): HeadingItem[] {
+   const lines = markdown.split('\n');
+@@ -238,6 +239,10 @@ function renderInlineElements(
+ 
+ function CodeBlockView({ code, language }: { code: string; language: string }) {
+   const [copied, setCopied] = React.useState(false);
++  const highlighted = React.useMemo(
++    () => highlightCode(code, language),
++    [code, language]
++  );
+ 
+   const handleCopy = () => {
+     navigator.clipboard.writeText(code);
+@@ -269,7 +274,11 @@ function CodeBlockView({ code, language }: { code: string; language: string }) {
+         </button>
+       </div>
+       <pre className="!my-0 !rounded-none !border-0">
+-        <code>{code}</code>
++        {highlighted !== null ? (
++          <code dangerouslySetInnerHTML={{ __html: highlighted }} />
++        ) : (
++          <code>{code}</code>
++        )}
+       </pre>
+     </div>
+   );

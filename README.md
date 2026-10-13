@@ -125,6 +125,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 
 ### 7. 💻 Blocs de Code & Productivité Développeur
 * **Blocs de code stylisés (` ```langage `)** : Affichage automatique du badge de langage (`python`, `typescript`, `rust`, `sql`, `json`, etc.).
+* **Coloration syntaxique en direct** : le code est coloré pendant la saisie selon le langage indiqué après les trois accents graves (` ```python `), en thème clair comme en thème sombre. Une quarantaine de langages sont reconnus, avec leurs abréviations courantes : `c`, `cpp` / `c++`, `arduino` / `ino`, `python` / `py`, `java`, `javascript` / `js`, `typescript` / `ts`, `sql`, `bash` / `sh`, `powershell`, `json`, `yaml`, `html` / `xml`, `css` / `scss`, `php`, `rust`, `go`, `kotlin`, `csharp` / `cs`, `latex`, `vhdl`, `verilog`, `x86asm`, etc. Sans langage (ou avec un langage inconnu), le code reste sans couleur. Les lignes longues défilent horizontalement.
 * **Copie rapide en un clic** : Bouton **Copier** intégré dans l'en-tête de chaque bloc de code avec confirmation visuelle.
 
 ---

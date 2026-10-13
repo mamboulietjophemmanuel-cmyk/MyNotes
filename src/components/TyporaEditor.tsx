@@ -21,6 +21,7 @@ import {
   Workflow,
 } from 'lucide-react';
 import { MermaidBlock } from './MermaidBlock';
+import { HighlightedCodeEditor } from './HighlightedCodeEditor';
 import { SearchMatch } from '../utils/searchEngine';
 
 export type ImageWrapMode = 'break' | 'wrap';
@@ -2302,14 +2303,12 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
                   </button>
                 </div>
               </div>
-              <textarea
+              <HighlightedCodeEditor
                 value={innerCode}
-                onChange={(e) =>
-                  updateBlockAt(idx, `\`\`\`${lang}\n${e.target.value}\n\`\`\``)
+                language={lang}
+                onChange={(newCode) =>
+                  updateBlockAt(idx, `\`\`\`${lang}\n${newCode}\n\`\`\``)
                 }
-                rows={Math.max(2, innerCode.split('\n').length)}
-                spellCheck={false}
-                className="w-full resize-none border-0 bg-transparent p-4 font-mono text-[13px] leading-relaxed text-[var(--adw-fg)] focus:outline-none"
               />
             </div>
           );

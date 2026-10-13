@@ -3,6 +3,7 @@ import katex from 'katex';
 import { HeadingItem, MediaAsset } from '../types/note';
 import { Check, Copy, Maximize2, Image as ImageIcon } from 'lucide-react';
 import { MermaidBlock } from '../components/MermaidBlock';
+import { highlightCode } from './highlight';
 
 export function extractHeadings(markdown: string): HeadingItem[] {
   const lines = markdown.split('\n');
@@ -238,6 +239,10 @@ function renderInlineElements(
 
 function CodeBlockView({ code, language }: { code: string; language: string }) {
   const [copied, setCopied] = React.useState(false);
+  const highlighted = React.useMemo(
+    () => highlightCode(code, language),
+    [code, language]
+  );
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -269,7 +274,11 @@ function CodeBlockView({ code, language }: { code: string; language: string }) {
         </button>
       </div>
       <pre className="!my-0 !rounded-none !border-0">
-        <code>{code}</code>
+        {highlighted !== null ? (
+          <code dangerouslySetInnerHTML={{ __html: highlighted }} />
+        ) : (
+          <code>{code}</code>
+        )}
       </pre>
     </div>
   );

@@ -24,6 +24,17 @@
   --adw-accent-hover: #1C71D8;
   --adw-accent-soft: rgba(53, 132, 228, 0.12);
   --adw-code-bg: #F4F4F6;
+  /* Coloration syntaxique (palette GNOME, thème clair) */
+  --hl-keyword: #8a2fa6;
+  --hl-string: #1a7f4b;
+  --hl-number: #b8470c;
+  --hl-comment: #6e6e76;
+  --hl-function: #1c5fb5;
+  --hl-type: #0e7490;
+  --hl-attr: #9a5b00;
+  --hl-meta: #a3365f;
+  --hl-addition: #1a7f4b;
+  --hl-deletion: #c01c28;
   --adw-shadow-popover: 0 8px 28px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.25);
 }
 
@@ -47,6 +58,17 @@
   --adw-accent-hover: #62A0EA;
   --adw-accent-soft: rgba(98, 160, 234, 0.18);
   --adw-code-bg: #28282C;
+  /* Coloration syntaxique (palette GNOME, thème sombre) */
+  --hl-keyword: #dc8add;
+  --hl-string: #8ff0a4;
+  --hl-number: #ffbe6f;
+  --hl-comment: #9a9996;
+  --hl-function: #78aeed;
+  --hl-type: #93ddc2;
+  --hl-attr: #f9f06b;
+  --hl-meta: #f66151;
+  --hl-addition: #8ff0a4;
+  --hl-deletion: #ff938c;
   --adw-shadow-popover: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
@@ -339,4 +361,76 @@ body {
   color: #030712 !important;
 }
 
+/* =====================================================================
+   COLORATION SYNTAXIQUE DES BLOCS DE CODE (classes générées par highlight.js)
+   ===================================================================== */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag {
+  color: var(--hl-keyword);
+}
 
+.hljs-string,
+.hljs-regexp,
+.hljs-template-variable,
+.hljs-char.escape_ {
+  color: var(--hl-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--hl-number);
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-section,
+.hljs-selector-id {
+  color: var(--hl-function);
+}
+
+.hljs-type,
+.hljs-built_in,
+.hljs-title.class_,
+.hljs-class .hljs-title,
+.hljs-selector-class {
+  color: var(--hl-type);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-property,
+.hljs-name {
+  color: var(--hl-attr);
+}
+
+.hljs-meta,
+.hljs-tag,
+.hljs-link {
+  color: var(--hl-meta);
+}
+
+.hljs-addition {
+  color: var(--hl-addition);
+}
+
+.hljs-deletion {
+  color: var(--hl-deletion);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
+}
