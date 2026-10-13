@@ -320,7 +320,7 @@ export const FindReplaceBar: React.FC<FindReplaceBarProps> = ({
               onClick={onReplaceAll}
               disabled={matchesCount === 0}
               className="adw-btn px-2.5 py-1 text-xs font-semibold bg-[var(--adw-accent)] text-white hover:opacity-90 disabled:opacity-30 disabled:pointer-events-none shadow-xs transition-colors"
-              title="Remplacer toutes les occurrences (Alt+A / Ctrl+Alt+Entrée)"
+              title="Remplacer toutes les occurrences (Ctrl+Entrée / Alt+Entrée dans le champ de remplacement)"
             >
               <span>Tout remplacer</span>
             </button>

@@ -58,7 +58,8 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 ### 1. ✍️ Éditeur Hybride « Live-Preview » (Style Typora)
 * **Rendu bloc par bloc instantané** : Les titres (`#` à `######`), listes, citations et séparateurs prennent forme dès que vous validez ou quittez le bloc.
 * **Positionnement intelligent du curseur** : Cliquez sur n'importe quel mot d'un paragraphe rendu pour basculer en mode édition avec le curseur placé **exactement** sur la lettre cliquée.
-* **Barre d'outils flottante au survol / sélection** : Sélectionnez du texte pour faire apparaître une palette contextuelle rapide (**Gras**, *Italique*, ~~Barré~~, `Code`, `Formule $`, Lien, Surlignage `==texte==`, Indice `~`, Exposant `^`).
+* **Mise en forme en ligne** : **gras** (`**`), *italique* (`*`), ~~barré~~ (`~~`), `code` (`` ` ``), liens et formules `$...$` sont rendus dans le texte. Raccourcis `Ctrl + B` et `Ctrl + I` pour le gras et l'italique.
+* **Menu « Insérer »** : ajoutez en un clic un tableau, une formule LaTeX, un diagramme Mermaid ou une image.
 * **Listes de tâches interactives** : Cochez ou décochez vos `todo-lists` (`- [ ]` / `- [x]`) directement dans l'aperçu sans ouvrir le code source.
 
 <!-- EMPLACEMENT VISUEL 1 : GIF de l'édition hybride & barre flottante -->
@@ -84,11 +85,11 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 
 ### 4. 🖼️ Gestion Avancée des Images & Médias
 * **Importation universelle** :
-  * **Glisser-déposer (Drag & Drop)** d'images (`.png`, `.jpg`, `.webp`, `.gif`, `.svg`) directement dans la fenêtre.
+  * **Glisser-déposer (Drag & Drop)** d'images (`.png`, `.jpg`, `.webp`, `.gif`, `.svg`) directement dans la fenêtre, ou entre deux blocs pour choisir l'emplacement exact. Un fichier `.md` déposé s'ouvre dans un nouvel onglet.
   * **Coller depuis le presse-papiers (`Ctrl+V`)** pour insérer des captures d'écran instantanément.
 * **Contrôle de mise en page avancé** :
-  * Redimensionnement rapide (`25%`, `50%`, `75%`, `100%`) ou poignée de redimensionnement libre à la souris.
-  * **Habillage du texte (Text Wrapping)** : Mode *Saut de ligne* (bloc centré) ou *Habillage* (image flottante à gauche ou à droite entourée par le texte).
+  * Redimensionnement à la souris grâce aux poignées de l'image (de 15 % à 100 % de la largeur).
+  * **Habillage du texte (Text Wrapping)** : mode *Haut et bas* (l'image occupe sa propre ligne) ou *Épouser le texte* (image flottante à gauche ou à droite, entourée par le texte).
   * **Visionneuse Lightbox** : Cliquez pour agrandir n'importe quelle image en plein écran.
 * **Export autonome** : Lors de la sauvegarde en `.md`, vos images locales sont automatiquement intégrées pour que votre fichier reste 100 % portable.
 
@@ -101,7 +102,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
   * **Diagrammes de séquence** (`sequenceDiagram`)
   * **Cartes mentales** (`mindmap`)
   * **Diagrammes de Gantt & Roadmaps** (`gantt`)
-  * **Diagrammes de classes & Architecture** (`classDiagram`)
+  * **Architecture & Diagrammes de classes**
   * **Diagrammes d'états** (`stateDiagram-v2`)
   * **Graphiques circulaires** (`pie`)
   * **Arborescences Git** (`gitGraph`)
@@ -118,7 +119,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
   * **Respect de la casse (`Aa`)**
   * **Mot entier (`\b`)**
   * **Expressions régulières (`.*`)** avec validation syntaxique instantanée.
-* **Remplacement ciblé & global** : Remplacez l'occurrence active (`Entrée`) ou effectuez un remplacement atomique de tout le document (`Tout remplacer` / `Alt+A`) avec notification de confirmation.
+* **Remplacement ciblé & global** : Remplacez l'occurrence active (`Entrée` dans le champ de remplacement) ou tout le document d'un coup (bouton `Tout remplacer`, ou `Ctrl + Entrée` / `Alt + Entrée` dans le champ de remplacement).
 
 ---
 
@@ -142,7 +143,8 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 
 ### 9. 🎨 Interface Libadwaita & Confort de Lecture
 * **3 Modes de thème** : *Système (Auto)*, *Clair* ou *Sombre*, synchronisés en temps réel avec votre système d'exploitation.
-* **Contrôle du zoom** : Ajustez la taille d'affichage de `80%` à `150%` depuis le menu principal.
+* **Police de lecture Serif** : bascule en un clic entre la typographie sans-serif et une police à empattements, depuis le menu principal.
+* **Copier le code Markdown** : copie le contenu brut de la note active depuis le menu principal.
 * **Statistiques en temps réel** : Compteur de lignes, de mots et de caractères affiché en permanence dans la barre d'état inférieure.
 
 ---
@@ -158,12 +160,12 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 | `Ctrl + F` | Ouvrir la barre de recherche dans la note |
 | `Ctrl + H` | Ouvrir la recherche avec le champ de remplacement déplié |
 | `F3` / `Entrée` | Occurrence suivante dans la recherche |
-| `Maj + F3` / `Maj + Entrée` | Occurrence précédente dans la recherche |
+| `Maj + F3` / `Maj + Entrée` (dans la barre de recherche) | Occurrence précédente dans la recherche |
 | `Ctrl + V` | Coller du texte ou insérer une image depuis le presse-papiers |
 | `Ctrl + B` | Mettre la sélection en **Gras** |
 | `Ctrl + I` | Mettre la sélection en *Italique* |
-| `Ctrl + K` | Insérer un lien hypertexte sur la sélection |
-| `Entrée` / `Shift + Entrée` | Naviguer entre les blocs ou valider l'édition |
+| `Entrée` | Valider le bloc en cours d'édition |
+| `Maj + Entrée` | Insérer un saut de ligne dans le bloc |
 | `Retour arrière (Backspace)` | Fusionner le paragraphe actuel avec le paragraphe précédent (en début de bloc) |
 | `Échap (Esc)` | Fermer la recherche ou quitter l'édition du bloc actif |
 
@@ -175,6 +177,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 * **Runtime Desktop Natif** : [Tauri 2.0](https://tauri.app/) (Rust) — *empreinte mémoire minimale et démarrage instantané*
 * **Moteur de Style** : [Tailwind CSS v4](https://tailwindcss.com/) + Variables CSS personnalisées *GNOME Adwaita*
 * **Moteur Mathématique** : [KaTeX](https://katex.org/)
+* **Diagrammes** : [Mermaid](https://mermaid.js.org/)
 * **Icônes** : [Lucide Icons](https://lucide.dev/)
 * **Bundler** : [Vite](https://vitejs.dev/)
 
@@ -219,7 +222,10 @@ npx tauri build
 
 ## 🗺️ Feuille de route (Prochaines mises à jour)
 
-- [ ] **Prise en charge des diagrammes Mermaid (` ```mermaid `)** : Organigrammes, diagrammes de séquence et de classes générés à la volée.
+- [x] **Prise en charge des diagrammes Mermaid (` ```mermaid `)** : organigrammes, diagrammes de séquence et de classes générés à la volée.
+- [ ] **Barre d'outils flottante de mise en forme** à la sélection (gras, italique, barré, code, formule, lien).
+- [ ] **Surlignage `==texte==`, indice et exposant**, et raccourci `Ctrl + K` pour insérer un lien.
+- [ ] **Contrôle du zoom** de l'interface (80 % à 150 %).
 - [ ] **Export PDF & HTML stylisé** en un clic.
 - [ ] **Mode Focus / Machine à écrire** pour centrer la ligne active à l'écran.
 - [ ] **Explorateur de dossiers latéral** pour gérer des projets complets de notes.

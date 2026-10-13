@@ -1,6 +1,6 @@
 {
-  "name": "AdwNotes — Carnet Markdown Libadwaita",
-  "description": "Application de prise de notes Markdown minimaliste inspirée de GNOME Libadwaita pour Windows, avec gestion multi-onglets (.md), tableaux, formules LaTeX et glisser-déposer d'images.",
+  "name": "MyNotes — Éditeur Markdown hybride",
+  "description": "Éditeur Markdown hybride (WYSIWYG), scientifique et minimaliste inspiré de GNOME Libadwaita : multi-onglets, tableaux, formules LaTeX, diagrammes Mermaid et glisser-déposer d'images.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
