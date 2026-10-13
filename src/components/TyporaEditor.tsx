@@ -1737,6 +1737,13 @@ interface TyporaEditorProps {
   searchRegex?: RegExp | null;
   activeMatch?: SearchMatch | null;
   activeMatchIndex?: number | null;
+  // Drag & drop integration
+  onDropImageFile?: (
+    file: File | File[],
+    targetBlockIndex: number,
+    position: 'before' | 'after'
+  ) => void;
+  onDropMarkdownFiles?: (files: File[]) => void;
 }
 
 export const TyporaEditor: React.FC<TyporaEditorProps> = ({
@@ -1753,6 +1760,8 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
   searchRegex,
   activeMatch,
   activeMatchIndex,
+  onDropImageFile,
+  onDropMarkdownFiles,
 }) => {
   // Keep blocks in state while editing so clearing a block's text never causes it to vanish mid-typing
   const [blocks, setBlocks] = useState<MdBlock[]>(() =>
@@ -1791,6 +1800,110 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
   useEffect(() => {
     blocksRef.current = blocks;
   }, [blocks]);
+
+  // Block-level Drag-and-Drop state for direct text image insertion
+  const [dropTarget, setDropTarget] = useState<{
+    blockIndex: number;
+    position: 'before' | 'after';
+  } | null>(null);
+
+  useEffect(() => {
+    const handleWindowDragEnd = () => setDropTarget(null);
+    window.addEventListener('dragend', handleWindowDragEnd);
+    return () => window.removeEventListener('dragend', handleWindowDragEnd);
+  }, []);
+
+  const handleBlockDragOver = (e: React.DragEvent, idx: number) => {
+    if (
+      e.dataTransfer.types.includes('Files') ||
+      e.dataTransfer.types.includes('text/uri-list') ||
+      e.dataTransfer.types.includes('text/plain')
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      const position = e.clientY < mid ? 'before' : 'after';
+      setDropTarget({ blockIndex: idx, position });
+    }
+  };
+
+  const handleBlockDrop = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const position = dropTarget?.position || 'after';
+    setDropTarget(null);
+
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length === 0) {
+      const uri =
+        e.dataTransfer.getData('text/uri-list') ||
+        e.dataTransfer.getData('text/plain');
+      if (uri && /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(uri.trim())) {
+        const snippet = `![image|100%](${uri.trim()})`;
+        insertBlockBelow(
+          position === 'before' ? Math.max(0, idx - 1) : idx,
+          snippet
+        );
+      }
+      return;
+    }
+
+    const imageFiles = files.filter(
+      (f) =>
+        f.type.startsWith('image/') ||
+        /\.(png|jpe?g|webp|gif|svg)$/i.test(f.name)
+    );
+    const mdFiles = files.filter(
+      (f) =>
+        /\.(md|markdown|txt)$/i.test(f.name) ||
+        f.type === 'text/markdown' ||
+        f.type === 'text/plain'
+    );
+
+    if (imageFiles.length > 0 && onDropImageFile) {
+      onDropImageFile(imageFiles, idx, position);
+    }
+    if (mdFiles.length > 0 && onDropMarkdownFiles) {
+      onDropMarkdownFiles(mdFiles);
+    }
+  };
+
+  const handleCanvasDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDropTarget(null);
+
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length === 0) {
+      const uri =
+        e.dataTransfer.getData('text/uri-list') ||
+        e.dataTransfer.getData('text/plain');
+      if (uri && /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(uri.trim())) {
+        const snippet = `![image|100%](${uri.trim()})`;
+        insertBlockBelow(Math.max(0, blocks.length - 1), snippet);
+      }
+      return;
+    }
+
+    const imageFiles = files.filter(
+      (f) =>
+        f.type.startsWith('image/') ||
+        /\.(png|jpe?g|webp|gif|svg)$/i.test(f.name)
+    );
+    const mdFiles = files.filter(
+      (f) =>
+        /\.(md|markdown|txt)$/i.test(f.name) ||
+        f.type === 'text/markdown' ||
+        f.type === 'text/plain'
+    );
+
+    if (imageFiles.length > 0 && onDropImageFile) {
+      onDropImageFile(imageFiles, Math.max(0, blocks.length - 1), 'after');
+    }
+    if (mdFiles.length > 0 && onDropMarkdownFiles) {
+      onDropMarkdownFiles(mdFiles);
+    }
+  };
 
   const clearInitialCaret = () => {
     setLastClickPoint(null);
@@ -1904,15 +2017,8 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
     }
   };
 
-  return (
-    <div
-      ref={editorContainerRef}
-      className={`adw-markdown relative mx-auto max-w-4xl px-8 py-8 md:px-14 after:block after:clear-both ${
-        serifMode ? 'adw-markdown-serif' : ''
-      }`}
-    >
-      {blocks.map((block, idx) => {
-        const isFocused = focusedIndex === idx;
+  const renderBlockContent = (block: MdBlock, idx: number) => {
+    const isFocused = focusedIndex === idx;
 
         // 1. HEADING BLOCK (# to ######)
         if (block.type === 'heading') {
@@ -2478,7 +2584,75 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
             )}
           </p>
         );
-      })}
+      };
+
+      return (
+        <div
+          ref={editorContainerRef}
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes('Files')) {
+              e.preventDefault();
+            }
+          }}
+          onDrop={handleCanvasDrop}
+          className={`adw-markdown relative mx-auto max-w-4xl px-8 py-8 md:px-14 after:block after:clear-both ${
+            serifMode ? 'adw-markdown-serif' : ''
+          }`}
+        >
+          {blocks.map((block, idx) => {
+            const content = renderBlockContent(block, idx);
+            return (
+              <div
+                key={block.id}
+                data-block-idx={idx}
+                onDragOver={(e) => handleBlockDragOver(e, idx)}
+                onDragLeave={(e) => {
+                  if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                  if (dropTarget?.blockIndex === idx) setDropTarget(null);
+                }}
+                onDrop={(e) => handleBlockDrop(e, idx)}
+                className="relative"
+              >
+                {/* Drop Indicator Line (BEFORE) */}
+                {dropTarget?.blockIndex === idx && dropTarget.position === 'before' && (
+                  <div className="pointer-events-none my-2 flex items-center justify-center gap-2 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="h-0.5 flex-1 rounded-full bg-[var(--adw-accent)] shadow-xs" />
+                    <span className="flex items-center gap-1.5 rounded-full bg-[var(--adw-accent)] px-3 py-0.5 text-[11px] font-semibold text-white shadow-md">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      <span>Insérer l'image ici</span>
+                    </span>
+                    <div className="h-0.5 flex-1 rounded-full bg-[var(--adw-accent)] shadow-xs" />
+                  </div>
+                )}
+
+                {content}
+
+                {/* Drop Indicator Line (AFTER) */}
+                {dropTarget?.blockIndex === idx && dropTarget.position === 'after' && (
+                  <div className="pointer-events-none my-2 flex items-center justify-center gap-2 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="h-0.5 flex-1 rounded-full bg-[var(--adw-accent)] shadow-xs" />
+                    <span className="flex items-center gap-1.5 rounded-full bg-[var(--adw-accent)] px-3 py-0.5 text-[11px] font-semibold text-white shadow-md">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      <span>Insérer l'image ici</span>
+                    </span>
+                    <div className="h-0.5 flex-1 rounded-full bg-[var(--adw-accent)] shadow-xs" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Drop indicator if hovering at the bottom of the editor */}
+          {dropTarget?.blockIndex === blocks.length - 1 && dropTarget.position === 'after' && (
+            <div className="pointer-events-none my-3 flex items-center justify-center gap-2 animate-in fade-in duration-150">
+              <div className="h-0.5 flex-1 rounded-full bg-[var(--adw-accent)] shadow-xs" />
+              <span className="flex items-center gap-1.5 rounded-full bg-[var(--adw-accent)] px-3 py-0.5 text-[11px] font-semibold text-white shadow-md">
+                <ImageIcon className="h-3.5 w-3.5" />
+                <span>Insérer l'image à la fin</span>
+              </span>
+              <div className="h-0.5 flex-1 rounded-full bg-[var(--adw-accent)] shadow-xs" />
+            </div>
+          )}
 
       {/* Subtle Typora-style bottom insertion bar on hover */}
       <div className="group mt-8 flex items-center justify-center gap-2 py-4 opacity-0 transition-opacity hover:opacity-100">

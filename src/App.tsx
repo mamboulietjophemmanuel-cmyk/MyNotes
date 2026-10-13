@@ -35,7 +35,11 @@ import {
 } from './types/note';
 import { INITIAL_ASSETS, INITIAL_DOCUMENTS } from './data/initialNotes';
 import { computeDocumentStats } from './utils/markdownParser';
-import { TyporaEditor } from './components/TyporaEditor';
+import {
+  TyporaEditor,
+  parseMarkdownIntoBlocks,
+  serializeBlocksToMarkdown,
+} from './components/TyporaEditor';
 import { TableDialog } from './components/TableDialog';
 import { FormulaDialog } from './components/FormulaDialog';
 import { DiagramDialog } from './components/DiagramDialog';
@@ -302,9 +306,11 @@ export default function App() {
 
   // Drag & Drop + Inline Title Rename
   const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
+  const [isTabDropHover, setIsTabDropHover] = useState<boolean>(false);
   const [isRenamingTitle, setIsRenamingTitle] = useState<boolean>(false);
   const [filenameDraft, setFilenameDraft] = useState<string>('');
 
+  const dragCounterRef = useRef<number>(0);
   const mdFileInputRef = useRef<HTMLInputElement | null>(null);
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
   const openPopoverRef = useRef<HTMLDivElement | null>(null);
@@ -320,6 +326,17 @@ export default function App() {
     const t = setTimeout(() => setToastMessage(null), 2400);
     return () => clearTimeout(t);
   }, [toastMessage]);
+
+  // Global dragend safeguard to reset drag overlay
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      dragCounterRef.current = 0;
+      setIsDraggingOver(false);
+      setIsTabDropHover(false);
+    };
+    window.addEventListener('dragend', handleGlobalDragEnd);
+    return () => window.removeEventListener('dragend', handleGlobalDragEnd);
+  }, []);
 
   // Close popovers on outside click
   useEffect(() => {
@@ -698,78 +715,158 @@ export default function App() {
     [activeDocument, saveDocumentById]
   );
 
+  // Open one or more Markdown documents directly in new tabs
+  const openMarkdownFiles = useCallback(
+    async (fileList: File[] | FileList) => {
+      const files = Array.from(fileList);
+      const mdFiles = files.filter(
+        (f) =>
+          /\.(md|markdown|txt)$/i.test(f.name) ||
+          f.type === 'text/markdown' ||
+          f.type === 'text/plain'
+      );
+      if (mdFiles.length === 0) return;
+
+      const newDocs: MarkdownDocument[] = [];
+      for (const file of mdFiles) {
+        const content = await file.text();
+        const normalizedName = file.name.endsWith('.md')
+          ? file.name
+          : `${file.name.replace(/\.[^/.]+$/, '')}.md`;
+
+        newDocs.push({
+          id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          filename: normalizedName,
+          projectId: 'default',
+          content,
+          savedContent: content,
+          isDirty: false,
+          isNewUnsaved: false,
+          updatedAt: 'Importé à l’instant',
+        });
+      }
+
+      setDocuments((prev) => [...newDocs, ...prev]);
+      setOpenTabs((prev) => [
+        ...prev,
+        ...newDocs.map((d) => ({ docId: d.id })),
+      ]);
+      const lastDoc = newDocs[newDocs.length - 1];
+      if (lastDoc) {
+        setActiveDocId(lastDoc.id);
+      }
+      if (newDocs.length === 1) {
+        showToast(`« ${newDocs[0].filename} » ouvert dans un nouvel onglet`);
+      } else {
+        showToast(`${newDocs.length} documents ouverts dans de nouveaux onglets`);
+      }
+    },
+    [showToast]
+  );
+
+  // Insert one or more image files directly at a target block in the active document (or at the bottom)
+  const insertImageFiles = useCallback(
+    async (
+      fileOrFiles: File | File[],
+      targetBlockIndex?: number,
+      position: 'before' | 'after' = 'after'
+    ) => {
+      const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
+      const validImages = files.filter(
+        (f) =>
+          f.type.startsWith('image/') ||
+          /\.(png|jpe?g|webp|gif|svg)$/i.test(f.name)
+      );
+      if (validImages.length === 0) return;
+
+      const loaded = await Promise.all(
+        validImages.map(async (file, idx) => {
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+
+          const assetId = `img-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`;
+          const cleanTitle = file.name.replace(/\.[^/.]+$/, '');
+          const newAsset: MediaAsset = {
+            id: assetId,
+            name: file.name,
+            dataUrl,
+            mimeType: file.type || 'image/png',
+            sizeBytes: file.size,
+            createdAt: new Date().toISOString(),
+          };
+          const snippet = `![${cleanTitle}|100%](asset://${assetId})`;
+          return { file, assetId, newAsset, snippet };
+        })
+      );
+
+      const assetsToStore: Record<string, MediaAsset> = {};
+      loaded.forEach((item) => {
+        assetsToStore[item.assetId] = item.newAsset;
+      });
+      setAssets((prev) => ({ ...prev, ...assetsToStore }));
+
+      if (typeof targetBlockIndex === 'number' && activeDocument) {
+        const blocks = parseMarkdownIntoBlocks(activeDocument.content);
+        const insertAt =
+          position === 'before'
+            ? Math.max(0, targetBlockIndex)
+            : Math.min(blocks.length, targetBlockIndex + 1);
+
+        const newBlocks = loaded.map((item, i) => ({
+          id: `blk-img-${Date.now()}-${i}`,
+          type: 'image' as const,
+          raw: item.snippet,
+          startLine: 0,
+        }));
+
+        const nextBlocks = [...blocks];
+        nextBlocks.splice(insertAt, 0, ...newBlocks);
+        const newMd = serializeBlocksToMarkdown(nextBlocks);
+        updateActiveContent(newMd);
+      } else {
+        const combinedSnippets = loaded.map((item) => item.snippet).join('\n\n');
+        appendBlockSnippet(combinedSnippets);
+      }
+
+      if (loaded.length === 1) {
+        showToast(`Image « ${loaded[0].file.name} » insérée dans le texte`);
+      } else {
+        showToast(`${loaded.length} images insérées dans le texte`);
+      }
+    },
+    [activeDocument, updateActiveContent, appendBlockSnippet, showToast]
+  );
+
+  const insertImageFile = insertImageFiles;
+
   // Process incoming files (both .md documents and images via Drag-and-Drop or File Picker)
   const processIncomingFiles = useCallback(
     (fileList: FileList | File[]) => {
       const files = Array.from(fileList);
-      if (files.length === 0) return;
+      const mdFiles = files.filter(
+        (f) =>
+          /\.(md|markdown|txt)$/i.test(f.name) ||
+          f.type === 'text/markdown' ||
+          f.type === 'text/plain'
+      );
+      const imageFiles = files.filter(
+        (f) =>
+          f.type.startsWith('image/') ||
+          /\.(png|jpe?g|webp|gif|svg)$/i.test(f.name)
+      );
 
-      files.forEach((file) => {
-        const lowerName = file.name.toLowerCase();
-
-        // Case 1: Image file (.png, .jpg, .jpeg, .webp, .gif, .svg)
-        if (
-          file.type.startsWith('image/') ||
-          /\.(png|jpe?g|webp|gif|svg)$/.test(lowerName)
-        ) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const dataUrl = reader.result as string;
-            const assetId = `img-${Date.now()}-${Math.random()
-              .toString(36)
-              .slice(2, 6)}`;
-            const cleanTitle = file.name.replace(/\.[^/.]+$/, '');
-            const newAsset: MediaAsset = {
-              id: assetId,
-              name: file.name,
-              dataUrl,
-              mimeType: file.type || 'image/png',
-              sizeBytes: file.size,
-              createdAt: new Date().toISOString(),
-            };
-
-            setAssets((prev) => ({ ...prev, [assetId]: newAsset }));
-            appendBlockSnippet(`![${cleanTitle}|100%](asset://${assetId})`);
-            showToast(`Image « ${file.name} » insérée`);
-          };
-          reader.readAsDataURL(file);
-          return;
-        }
-
-        // Case 2: Markdown or text document (.md, .markdown, .txt)
-        if (
-          /\.(md|markdown|txt)$/.test(lowerName) ||
-          file.type === 'text/markdown' ||
-          file.type === 'text/plain'
-        ) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const content = reader.result as string;
-            const normalizedName = file.name.endsWith('.md')
-              ? file.name
-              : `${file.name.replace(/\.[^/.]+$/, '')}.md`;
-
-            const newDoc: MarkdownDocument = {
-              id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              filename: normalizedName,
-              projectId: 'default',
-              content,
-              savedContent: content,
-              isDirty: false,
-              isNewUnsaved: false,
-              updatedAt: 'Importé à l’instant',
-            };
-
-            setDocuments((prev) => [newDoc, ...prev]);
-            setOpenTabs((prev) => [...prev, { docId: newDoc.id }]);
-            setActiveDocId(newDoc.id);
-            showToast(`« ${normalizedName} » ouvert dans un nouvel onglet`);
-          };
-          reader.readAsText(file);
-        }
-      });
+      if (mdFiles.length > 0) {
+        openMarkdownFiles(mdFiles);
+      }
+      if (imageFiles.length > 0) {
+        insertImageFiles(imageFiles);
+      }
     },
-    [appendBlockSnippet, showToast]
+    [openMarkdownFiles, insertImageFiles]
   );
 
   // Handle clipboard paste of images
@@ -889,17 +986,40 @@ export default function App() {
   return (
     <div
       className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--adw-window-bg)] text-[var(--adw-fg)] select-none"
+      onDragEnter={(e) => {
+        e.preventDefault();
+        dragCounterRef.current += 1;
+        if (
+          e.dataTransfer.types.includes('Files') ||
+          e.dataTransfer.types.includes('text/uri-list')
+        ) {
+          setIsDraggingOver(true);
+        }
+      }}
       onDragOver={(e) => {
         e.preventDefault();
-        if (!isDraggingOver) setIsDraggingOver(true);
+        if (
+          !isDraggingOver &&
+          (e.dataTransfer.types.includes('Files') ||
+            e.dataTransfer.types.includes('text/uri-list'))
+        ) {
+          setIsDraggingOver(true);
+        }
       }}
       onDragLeave={(e) => {
-        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-        setIsDraggingOver(false);
+        e.preventDefault();
+        dragCounterRef.current -= 1;
+        if (dragCounterRef.current <= 0) {
+          dragCounterRef.current = 0;
+          setIsDraggingOver(false);
+          setIsTabDropHover(false);
+        }
       }}
       onDrop={(e) => {
         e.preventDefault();
+        dragCounterRef.current = 0;
         setIsDraggingOver(false);
+        setIsTabDropHover(false);
         if (e.dataTransfer?.files?.length) {
           processIncomingFiles(e.dataTransfer.files);
         }
@@ -929,19 +1049,30 @@ export default function App() {
         }}
       />
 
-      {/* Full-Window Drag-and-Drop Overlay (.md & Images) */}
+      {/* Full-Window Drag-and-Drop Visual Cue (.md & Images) */}
       {isDraggingOver && (
-        <div className="pointer-events-none fixed inset-3 z-50 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--adw-accent)] bg-[var(--adw-window-bg)]/90 backdrop-blur-md">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--adw-border)] bg-[var(--adw-card-bg)] px-8 py-6 shadow-xl">
-            <Upload className="h-10 w-10 text-[var(--adw-accent)]" />
-            <p className="text-base font-semibold text-[var(--adw-fg)]">
-              Déposez vos fichiers Markdown (.md) ou vos images ici
-            </p>
-            <p className="text-xs text-[var(--adw-fg-muted)]">
-              Les fichiers .md s’ouvrent dans de nouveaux onglets · Les images sont intégrées au document
-            </p>
+        <>
+          {/* Subtle perimeter accent frame */}
+          <div className="pointer-events-none fixed inset-1.5 z-50 rounded-2xl border-2 border-dashed border-[var(--adw-accent)] shadow-[0_0_24px_rgba(53,132,228,0.2)] ring-4 ring-[var(--adw-accent)]/10" />
+
+          {/* Floating Libadwaita instruction banner near top */}
+          <div className="pointer-events-none fixed top-14 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-full border border-[var(--adw-accent)]/60 bg-[var(--adw-card-bg)] px-5 py-2 text-xs font-semibold text-[var(--adw-fg)] shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--adw-accent)] text-white shadow-xs">
+              <Upload className="h-3.5 w-3.5" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 font-bold text-[var(--adw-accent)]">
+                <FileText className="h-3.5 w-3.5" /> Fichier .md :
+              </span>
+              <span>Déposer pour ouvrir un nouvel onglet</span>
+              <span className="text-[var(--adw-border)]">·</span>
+              <span className="flex items-center gap-1 font-bold text-[var(--adw-accent)]">
+                <ImageIcon className="h-3.5 w-3.5" /> Image :
+              </span>
+              <span>Glisser directement dans le texte</span>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* =====================================================================
@@ -1395,6 +1526,36 @@ export default function App() {
                 </React.Fragment>
               );
             })}
+
+            {/* Dedicated Drop-to-Open-Tab Zone on the Tab Strip */}
+            {isDraggingOver && (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsTabDropHover(true);
+                }}
+                onDragLeave={() => setIsTabDropHover(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  dragCounterRef.current = 0;
+                  setIsDraggingOver(false);
+                  setIsTabDropHover(false);
+                  if (e.dataTransfer?.files?.length) {
+                    processIncomingFiles(e.dataTransfer.files);
+                  }
+                }}
+                className={`ml-1 flex h-[30px] shrink-0 items-center gap-1.5 rounded-lg border-2 border-dashed px-3 text-[12px] font-semibold transition-all ${
+                  isTabDropHover
+                    ? 'border-[var(--adw-accent)] bg-[var(--adw-accent-soft)] text-[var(--adw-accent)] scale-102 shadow-xs'
+                    : 'border-[var(--adw-accent)]/60 bg-[var(--adw-view-bg)] text-[var(--adw-accent)] animate-pulse'
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>Déposer ici pour nouvel onglet</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1440,6 +1601,10 @@ export default function App() {
             searchRegex={searchRegex}
             activeMatch={currentMatch}
             activeMatchIndex={activeMatchIndex}
+            onDropImageFile={(files, idx, pos) =>
+              insertImageFiles(files, idx, pos)
+            }
+            onDropMarkdownFiles={openMarkdownFiles}
           />
         )}
       </main>
