@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.1.1"
+version = "0.2.0"
 description = "MyNotes — éditeur Markdown hybride (WYSIWYG), scientifique et minimaliste"
 authors = ["Joph Emmanuel"]
 license-file = "../LICENSE"

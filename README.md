@@ -19,7 +19,7 @@
 ### **L'éditeur Markdown hybride (WYSIWYG), scientifique et minimaliste.**
 *Inspiré par l'élégance de GNOME Libadwaita et la fluidité de Typora.*
 
-[![Version](https://img.shields.io/badge/version-0.1.1-3584e4?style=for-the-badge)](https://github.com/mamboulietjophemmanuel-cmyk/MyNotes)
+[![Version](https://img.shields.io/badge/version-0.2.0-3584e4?style=for-the-badge)](https://github.com/mamboulietjophemmanuel-cmyk/MyNotes)
 [![Platform](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#🚀-installation--développement)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-FFC131?style=for-the-badge&logo=tauri&logoColor=black)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
