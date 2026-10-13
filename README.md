@@ -24,7 +24,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-FFC131?style=for-the-badge&logo=tauri&logoColor=black)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-Apache_2.0-2ec27e?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/Licence-Tous_droits_r%C3%A9serv%C3%A9s-e01b24?style=for-the-badge)](LICENSE)
 
 <br />
 
@@ -229,6 +229,14 @@ npx tauri build
 - [ ] **Export PDF & HTML stylisé** en un clic.
 - [ ] **Mode Focus / Machine à écrire** pour centrer la ligne active à l'écran.
 - [ ] **Explorateur de dossiers latéral** pour gérer des projets complets de notes.
+
+---
+
+## 📄 Licence
+
+© 2026 MAMBOU LIET Joph Emmanuel. **Tous droits réservés.**
+
+Le code source est consultable, mais il ne peut être ni copié, ni modifié, ni redistribué sans autorisation écrite de l'auteur. L'usage personnel et non commercial du logiciel est autorisé. Les détails sont dans le fichier [LICENSE](LICENSE). Les bibliothèques tierces utilisées restent soumises à leurs propres licences.
 
 ---
 
