@@ -137,7 +137,12 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 * **Persistance de session intelligente** :
   * Fermez la fenêtre (`✕`) pour retrouver tous vos onglets ouverts au prochain lancement.
   * Fermez le dernier onglet pour repartir sur un espace vierge à la prochaine ouverture.
-* **Menu d'ouverture rapide (`Ouvrir ▾`)** : Recherche instantanée dans le titre et le contenu de vos notes récentes ou ouverture de fichiers `.md` / `.txt` depuis votre disque.
+* **Menu d'ouverture rapide (`Ouvrir ▾`)** : Recherche instantanée dans le titre et le contenu de vos notes récentes, ou ouverture de fichiers `.md` / `.txt` depuis votre disque.
+* **Vrais fichiers sur le disque (application de bureau)** :
+  * `Ouvrir` affiche la boîte de dialogue native de votre système, et le dossier du fichier s'affiche sous le titre (ex. `~/Documents`).
+  * `Ctrl + S` écrit directement dans le fichier d'origine, sans téléchargement ni copie. Une note jamais enregistrée (ou renommée) ouvre la boîte « Enregistrer sous ».
+  * Si le fichier a été déplacé ou n'est plus accessible, MyNotes propose automatiquement « Enregistrer sous ».
+  * Dans un navigateur (`npm run dev`), l'enregistrement reste un téléchargement du fichier `.md`.
 
 ---
 
@@ -154,8 +159,9 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 | Raccourci | Action |
 | :--- | :--- |
 | `Ctrl + N` / `Ctrl + T` | Créer une nouvelle note dans un nouvel onglet |
-| `Ctrl + O` | Ouvrir un fichier Markdown (`.md`, `.markdown`, `.txt`) depuis l'ordinateur |
-| `Ctrl + S` | Enregistrer / Exporter la note active au format `.md` |
+| `Ctrl + O` | Ouvrir un ou plusieurs fichiers Markdown (`.md`, `.markdown`, `.txt`) depuis l'ordinateur |
+| `Ctrl + S` | Enregistrer la note active dans son fichier (ou ouvrir « Enregistrer sous » si elle n'en a pas encore) |
+| `Ctrl + Maj + S` | Enregistrer la note active sous un autre nom ou à un autre endroit |
 | `Ctrl + W` | Fermer l'onglet actif |
 | `Ctrl + F` | Ouvrir la barre de recherche dans la note |
 | `Ctrl + H` | Ouvrir la recherche avec le champ de remplacement déplié |

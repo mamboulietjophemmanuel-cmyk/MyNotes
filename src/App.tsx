@@ -51,6 +51,18 @@ import {
   compileSearchPattern,
   SearchOptions,
 } from './utils/searchEngine';
+import {
+  OpenedFile,
+  baseName,
+  dirName,
+  displayDir,
+  getHomeDir,
+  isTauri,
+  joinPath,
+  openMarkdownFilesDialog,
+  saveFileDialog,
+  writeTextToPath,
+} from './utils/nativeFiles';
 
 const STORAGE_KEY_DOCS = 'adwnotes_documents_v2';
 const STORAGE_KEY_TABS = 'adwnotes_tabs_v2';
@@ -99,6 +111,7 @@ function getNextUntitledNumber(
 }
 
 function isDisposableUntitledDraft(doc: MarkdownDocument): boolean {
+  if (doc.path) return false;
   if (doc.isNewUnsaved && !doc.isDirty) return true;
   const isUntitledName = /^Sans titre\s+\d+(?:\.md)?$/i.test(doc.filename);
   const isDefaultTemplate =
@@ -283,6 +296,17 @@ export default function App() {
   const [primaryMenuOpen, setPrimaryMenuOpen] = useState<boolean>(false);
   const [insertPopoverOpen, setInsertPopoverOpen] = useState<boolean>(false);
   const [serifTypography, setSerifTypography] = useState<boolean>(false);
+  // Dossier personnel (application de bureau) : sert à afficher « ~/Documents » au lieu du chemin complet
+  const [homeDir, setHomeDir] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getHomeDir().then((dir) => {
+      if (!cancelled) setHomeDir(dir);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [tableModalOpen, setTableModalOpen] = useState<boolean>(false);
   const [formulaModalOpen, setFormulaModalOpen] = useState<boolean>(false);
@@ -564,17 +588,22 @@ export default function App() {
 
   // Execute the actual tab closure (after save/discard confirmation or immediately if clean)
   const performCloseTab = useCallback(
-    (docId: string, discardChanges = false) => {
-      let updatedDocs = documents;
-      const target = documents.find((d) => d.id === docId);
+    (
+      docId: string,
+      discardChanges = false,
+      docsOverride?: MarkdownDocument[]
+    ) => {
+      const baseDocs = docsOverride ?? documents;
+      let updatedDocs = baseDocs;
+      const target = baseDocs.find((d) => d.id === docId);
 
       if (target) {
         if (discardChanges) {
           if (target.isNewUnsaved || isDisposableUntitledDraft(target)) {
             // Completely remove unsaved new notes when discarded (even if it is the last tab)
-            updatedDocs = documents.filter((d) => d.id !== docId);
+            updatedDocs = baseDocs.filter((d) => d.id !== docId);
           } else {
-            updatedDocs = documents.map((d) =>
+            updatedDocs = baseDocs.map((d) =>
               d.id === docId
                 ? {
                     ...d,
@@ -588,7 +617,7 @@ export default function App() {
           setDocuments(updatedDocs);
         } else if (isDisposableUntitledDraft(target)) {
           // If closing an untouched blank "Sans titre" tab without saving, don't keep it in storage
-          updatedDocs = documents.filter((d) => d.id !== docId);
+          updatedDocs = baseDocs.filter((d) => d.id !== docId);
           setDocuments(updatedDocs);
         }
       }
@@ -659,11 +688,18 @@ export default function App() {
     [documents, activeDocId]
   );
 
-  // Save/Download a specific .md file to Windows and mark it as saved
+  // Enregistre un document et renvoie sa version mise à jour (ou null si annulé / en échec).
+  // - Application de bureau : écrit dans le fichier d'origine ; « Enregistrer sous » (ou une note
+  //   jamais enregistrée, renommée, ou dont le fichier est inaccessible) ouvre la boîte de dialogue native.
+  // - Navigateur (npm run dev) : téléchargement du .md, comme avant.
   const saveDocumentById = useCallback(
-    (docId: string, embedAssetsAsBase64 = true) => {
+    async (
+      docId: string,
+      embedAssetsAsBase64 = true,
+      forceDialog = false
+    ): Promise<MarkdownDocument | null> => {
       const targetDoc = documents.find((d) => d.id === docId);
-      if (!targetDoc) return;
+      if (!targetDoc) return null;
       let finalContent = targetDoc.content;
 
       if (embedAssetsAsBase64) {
@@ -673,6 +709,65 @@ export default function App() {
             asset.dataUrl
           );
         });
+      }
+
+      const savedContent = targetDoc.content;
+      const markSaved = (patch: Partial<MarkdownDocument>): MarkdownDocument => {
+        setDocuments((prev) =>
+          prev.map((d) =>
+            d.id === docId
+              ? {
+                  ...d,
+                  ...patch,
+                  savedContent,
+                  // Si la note a encore changé pendant l'enregistrement, elle reste « modifiée »
+                  isDirty: d.content !== savedContent,
+                  isNewUnsaved: false,
+                }
+              : d
+          )
+        );
+        return {
+          ...targetDoc,
+          ...patch,
+          savedContent,
+          isDirty: false,
+          isNewUnsaved: false,
+        };
+      };
+
+      if (isTauri()) {
+        const renamed =
+          Boolean(targetDoc.path) &&
+          baseName(targetDoc.path as string) !== targetDoc.filename;
+        let path: string | undefined =
+          forceDialog || renamed ? undefined : targetDoc.path;
+        try {
+          if (path) {
+            try {
+              await writeTextToPath(path, finalContent);
+            } catch {
+              // Fichier déplacé, dossier supprimé ou accès refusé : on propose « Enregistrer sous »
+              path = undefined;
+            }
+          }
+          if (!path) {
+            const suggested = targetDoc.path
+              ? joinPath(dirName(targetDoc.path), targetDoc.filename)
+              : targetDoc.filename;
+            const chosen = await saveFileDialog(suggested);
+            if (!chosen) return null;
+            await writeTextToPath(chosen, finalContent);
+            path = chosen;
+          }
+        } catch {
+          showToast('Impossible d’enregistrer le fichier.');
+          return null;
+        }
+        const name = baseName(path);
+        const saved = markSaved({ path, filename: name });
+        showToast(`Enregistré : « ${name} »`);
+        return saved;
       }
 
       const blob = new Blob([finalContent], {
@@ -689,31 +784,97 @@ export default function App() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setDocuments((prev) =>
-        prev.map((d) =>
-          d.id === docId
-            ? {
-                ...d,
-                savedContent: d.content,
-                isDirty: false,
-                isNewUnsaved: false,
-              }
-            : d
-        )
-      );
+      const saved = markSaved({});
       showToast(`Enregistré sous « ${a.download} »`);
+      return saved;
     },
     [documents, assets, showToast]
   );
 
-  // Save/Download active .md file to Windows
+  // Enregistrer la note active (Ctrl+S) ou « Enregistrer sous » (Ctrl+Maj+S)
   const handleDownloadMarkdown = useCallback(
-    (embedAssetsAsBase64 = true) => {
+    (embedAssetsAsBase64 = true, forceDialog = false) => {
       if (!activeDocument) return;
-      saveDocumentById(activeDocument.id, embedAssetsAsBase64);
+      void saveDocumentById(
+        activeDocument.id,
+        embedAssetsAsBase64,
+        forceDialog
+      );
     },
     [activeDocument, saveDocumentById]
   );
+
+  // Ouvrir des fichiers du disque : boîte native sous Tauri, sélecteur de fichier web sinon
+  const handleOpenFiles = useCallback(async () => {
+    setOpenPopoverVisible(false);
+    if (!isTauri()) {
+      mdFileInputRef.current?.click();
+      return;
+    }
+
+    let files: OpenedFile[] | null;
+    try {
+      files = await openMarkdownFilesDialog();
+    } catch {
+      showToast('Impossible d’ouvrir le fichier.');
+      return;
+    }
+    if (!files || files.length === 0) return;
+
+    const normPath = (p: string) =>
+      p.includes('\\') ? p.replace(/\\/g, '/').toLowerCase() : p;
+    const openByPath = new Map<string, MarkdownDocument>();
+    documents.forEach((d) => {
+      if (d.path) openByPath.set(normPath(d.path), d);
+    });
+
+    const orderedIds: string[] = [];
+    const newDocs: MarkdownDocument[] = [];
+    let alreadyOpenCount = 0;
+    for (const file of files) {
+      const existing = openByPath.get(normPath(file.path));
+      if (existing) {
+        alreadyOpenCount += 1;
+        orderedIds.push(existing.id);
+        continue;
+      }
+      const doc: MarkdownDocument = {
+        id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        filename: file.name,
+        projectId: 'default',
+        path: file.path,
+        content: file.content,
+        savedContent: file.content,
+        isDirty: false,
+        isNewUnsaved: false,
+        updatedAt: 'Ouvert à l’instant',
+      };
+      newDocs.push(doc);
+      orderedIds.push(doc.id);
+    }
+
+    if (newDocs.length > 0) {
+      setDocuments((prev) => [...newDocs, ...prev]);
+    }
+    setOpenTabs((prev) => {
+      const next = [...prev];
+      orderedIds.forEach((id) => {
+        if (!next.some((t) => t.docId === id)) next.push({ docId: id });
+      });
+      return next;
+    });
+    setActiveDocId(orderedIds[orderedIds.length - 1]);
+
+    if (files.length === 1) {
+      showToast(
+        alreadyOpenCount === 1
+          ? `« ${files[0].name} » est déjà ouvert`
+          : `« ${files[0].name} » ouvert dans un nouvel onglet`
+      );
+    } else {
+      showToast(`${files.length} documents ouverts`);
+    }
+  }, [documents, showToast]);
 
   // Open one or more Markdown documents directly in new tabs
   const openMarkdownFiles = useCallback(
@@ -898,13 +1059,13 @@ export default function App() {
         const key = e.key.toLowerCase();
         if (key === 's') {
           e.preventDefault();
-          handleDownloadMarkdown(true);
+          handleDownloadMarkdown(true, e.shiftKey);
         } else if (key === 'n' || key === 't') {
           e.preventDefault();
           handleCreateNewDocument();
         } else if (key === 'o') {
           e.preventDefault();
-          mdFileInputRef.current?.click();
+          void handleOpenFiles();
         } else if (key === 'w') {
           e.preventDefault();
           if (activeDocument) handleCloseTab(activeDocument.id);
@@ -935,6 +1096,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     handleDownloadMarkdown,
+    handleOpenFiles,
     handleCreateNewDocument,
     handleCloseTab,
     activeDocument,
@@ -957,6 +1119,10 @@ export default function App() {
   const commitTitleRename = () => {
     if (!activeDocument) return;
     const trimmed = filenameDraft.trim();
+    if (trimmed === activeDocument.filename) {
+      setIsRenamingTitle(false);
+      return;
+    }
     if (trimmed) {
       const cleanTitle = trimmed.replace(/\.md$/i, '');
       const finalName = `${cleanTitle}.md`;
@@ -1135,7 +1301,12 @@ export default function App() {
                             </span>
                           </div>
                           <div className="mt-0.5 pl-5.5 text-[11px] text-[var(--adw-fg-muted)]">
-                            ~/Documents · {doc.updatedAt}
+                            {doc.path
+                              ? displayDir(doc.path, homeDir)
+                              : isTauri()
+                                ? 'Non enregistré'
+                                : '~/Documents'}{' '}
+                            · {doc.updatedAt}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -1164,8 +1335,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      setOpenPopoverVisible(false);
-                      mdFileInputRef.current?.click();
+                      void handleOpenFiles();
                     }}
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--adw-border)] bg-[var(--adw-card-bg)] py-1.5 text-xs font-semibold text-[var(--adw-fg)] hover:bg-[var(--adw-hover-bg)]"
                   >
@@ -1223,7 +1393,11 @@ export default function App() {
             data-tauri-drag-region
             className="pointer-events-none truncate text-[11px] leading-tight text-[var(--adw-fg-muted)]"
           >
-            ~/Documents
+            {activeDocument?.path
+              ? displayDir(activeDocument.path, homeDir)
+              : isTauri()
+                ? 'Non enregistré'
+                : '~/Documents'}
           </span>
         </div>
 
@@ -1427,16 +1601,38 @@ export default function App() {
                   </span>
                 </button>
 
+                {isTauri() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDownloadMarkdown(true);
+                      setPrimaryMenuOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-[var(--adw-fg)] hover:bg-[var(--adw-hover-bg)]"
+                  >
+                    <span>Enregistrer</span>
+                    <span className="rounded bg-[var(--adw-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--adw-fg-muted)]">
+                      Ctrl+S
+                    </span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {
-                    handleDownloadMarkdown(true);
+                    handleDownloadMarkdown(true, true);
                     setPrimaryMenuOpen(false);
                   }}
                   className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-[var(--adw-fg)] hover:bg-[var(--adw-hover-bg)]"
                 >
                   <span>Enregistrer sous (.md)</span>
-                  <Download className="h-3.5 w-3.5 text-[var(--adw-fg-muted)]" />
+                  {isTauri() ? (
+                    <span className="rounded bg-[var(--adw-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--adw-fg-muted)]">
+                      Ctrl+Maj+S
+                    </span>
+                  ) : (
+                    <Download className="h-3.5 w-3.5 text-[var(--adw-fg-muted)]" />
+                  )}
                 </button>
 
                 <button
@@ -1754,25 +1950,42 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   const prompt = unsavedPrompt;
                   setUnsavedPrompt(null);
                   if (prompt.mode === 'tab') {
-                    saveDocumentById(prompt.targetDocId, true);
-                    performCloseTab(prompt.targetDocId, false);
-                  } else {
-                    prompt.unsavedDocIds.forEach((id) =>
-                      saveDocumentById(id, true)
+                    const saved = await saveDocumentById(
+                      prompt.targetDocId,
+                      true
                     );
-                    const savedDocs = documents.map((d) =>
-                      prompt.unsavedDocIds.includes(d.id)
-                        ? {
-                            ...d,
-                            savedContent: d.content,
-                            isDirty: false,
-                            isNewUnsaved: false,
-                          }
-                        : d
+                    if (!saved) {
+                      // Enregistrement annulé ou échoué : on garde l'onglet et on revient au dialogue
+                      setUnsavedPrompt(prompt);
+                      return;
+                    }
+                    performCloseTab(
+                      prompt.targetDocId,
+                      false,
+                      documents.map((d) => (d.id === saved.id ? saved : d))
+                    );
+                  } else {
+                    const savedById = new Map<string, MarkdownDocument>();
+                    for (const id of prompt.unsavedDocIds) {
+                      const saved = await saveDocumentById(id, true);
+                      if (!saved) {
+                        // Annulé : l'application reste ouverte, on redemande pour les notes restantes
+                        setUnsavedPrompt({
+                          mode: 'window',
+                          unsavedDocIds: prompt.unsavedDocIds.filter(
+                            (docId) => !savedById.has(docId)
+                          ),
+                        });
+                        return;
+                      }
+                      savedById.set(id, saved);
+                    }
+                    const savedDocs = documents.map(
+                      (d) => savedById.get(d.id) ?? d
                     );
                     triggerApplicationExit('window-close', savedDocs, openTabs);
                   }

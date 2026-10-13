@@ -21,6 +21,8 @@ export interface MarkdownDocument {
   id: string;
   filename: string; // e.g., "Optique & Dispersion.md"
   projectId: string;
+  /** Chemin complet du fichier sur le disque (application de bureau) ; absent tant que la note n'a jamais été enregistrée. */
+  path?: string;
   content: string;
   savedContent?: string;
   updatedAt: string;
