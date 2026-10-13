@@ -57,12 +57,22 @@ import {
   dirName,
   displayDir,
   getHomeDir,
+  getLaunchFiles,
+  isImagePath,
+  isMarkdownPath,
   isTauri,
   joinPath,
+  listenFileDrops,
+  listenOpenFiles,
   openMarkdownFilesDialog,
+  readImageFile,
+  readOpenedFiles,
   saveFileDialog,
   writeTextToPath,
 } from './utils/nativeFiles';
+
+// Les fichiers passés au lancement ne doivent être ouverts qu'une fois, même si l'interface se recharge
+let launchFilesHandled = false;
 
 const STORAGE_KEY_DOCS = 'adwnotes_documents_v2';
 const STORAGE_KEY_TABS = 'adwnotes_tabs_v2';
@@ -804,6 +814,66 @@ export default function App() {
     [activeDocument, saveDocumentById]
   );
 
+  // Ouvre dans des onglets des fichiers déjà lus depuis le disque (boîte « Ouvrir » ou glisser-déposer)
+  const openDiskFiles = useCallback(
+    (files: OpenedFile[]) => {
+      const normPath = (p: string) =>
+        p.includes('\\') ? p.replace(/\\/g, '/').toLowerCase() : p;
+      const openByPath = new Map<string, MarkdownDocument>();
+      documents.forEach((d) => {
+        if (d.path) openByPath.set(normPath(d.path), d);
+      });
+
+      const orderedIds: string[] = [];
+      const newDocs: MarkdownDocument[] = [];
+      let alreadyOpenCount = 0;
+      for (const file of files) {
+        const existing = openByPath.get(normPath(file.path));
+        if (existing) {
+          alreadyOpenCount += 1;
+          orderedIds.push(existing.id);
+          continue;
+        }
+        const doc: MarkdownDocument = {
+          id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          filename: file.name,
+          projectId: 'default',
+          path: file.path,
+          content: file.content,
+          savedContent: file.content,
+          isDirty: false,
+          isNewUnsaved: false,
+          updatedAt: 'Ouvert à l’instant',
+        };
+        newDocs.push(doc);
+        orderedIds.push(doc.id);
+      }
+
+      if (newDocs.length > 0) {
+        setDocuments((prev) => [...newDocs, ...prev]);
+      }
+      setOpenTabs((prev) => {
+        const next = [...prev];
+        orderedIds.forEach((id) => {
+          if (!next.some((t) => t.docId === id)) next.push({ docId: id });
+        });
+        return next;
+      });
+      setActiveDocId(orderedIds[orderedIds.length - 1]);
+
+      if (files.length === 1) {
+        showToast(
+          alreadyOpenCount === 1
+            ? `« ${files[0].name} » est déjà ouvert`
+            : `« ${files[0].name} » ouvert dans un nouvel onglet`
+        );
+      } else {
+        showToast(`${files.length} documents ouverts`);
+      }
+    },
+    [documents, showToast]
+  );
+
   // Ouvrir des fichiers du disque : boîte native sous Tauri, sélecteur de fichier web sinon
   const handleOpenFiles = useCallback(async () => {
     setOpenPopoverVisible(false);
@@ -820,61 +890,8 @@ export default function App() {
       return;
     }
     if (!files || files.length === 0) return;
-
-    const normPath = (p: string) =>
-      p.includes('\\') ? p.replace(/\\/g, '/').toLowerCase() : p;
-    const openByPath = new Map<string, MarkdownDocument>();
-    documents.forEach((d) => {
-      if (d.path) openByPath.set(normPath(d.path), d);
-    });
-
-    const orderedIds: string[] = [];
-    const newDocs: MarkdownDocument[] = [];
-    let alreadyOpenCount = 0;
-    for (const file of files) {
-      const existing = openByPath.get(normPath(file.path));
-      if (existing) {
-        alreadyOpenCount += 1;
-        orderedIds.push(existing.id);
-        continue;
-      }
-      const doc: MarkdownDocument = {
-        id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        filename: file.name,
-        projectId: 'default',
-        path: file.path,
-        content: file.content,
-        savedContent: file.content,
-        isDirty: false,
-        isNewUnsaved: false,
-        updatedAt: 'Ouvert à l’instant',
-      };
-      newDocs.push(doc);
-      orderedIds.push(doc.id);
-    }
-
-    if (newDocs.length > 0) {
-      setDocuments((prev) => [...newDocs, ...prev]);
-    }
-    setOpenTabs((prev) => {
-      const next = [...prev];
-      orderedIds.forEach((id) => {
-        if (!next.some((t) => t.docId === id)) next.push({ docId: id });
-      });
-      return next;
-    });
-    setActiveDocId(orderedIds[orderedIds.length - 1]);
-
-    if (files.length === 1) {
-      showToast(
-        alreadyOpenCount === 1
-          ? `« ${files[0].name} » est déjà ouvert`
-          : `« ${files[0].name} » ouvert dans un nouvel onglet`
-      );
-    } else {
-      showToast(`${files.length} documents ouverts`);
-    }
-  }, [documents, showToast]);
+    openDiskFiles(files);
+  }, [openDiskFiles, showToast]);
 
   // Open one or more Markdown documents directly in new tabs
   const openMarkdownFiles = useCallback(
@@ -1029,6 +1046,101 @@ export default function App() {
     },
     [openMarkdownFiles, insertImageFiles]
   );
+
+  // Application de bureau : Tauri intercepte les fichiers déposés sur la fenêtre, donc le navigateur
+  // intégré ne reçoit aucun événement « drop ». On écoute les événements de Tauri pour obtenir les vrais chemins.
+  const fileDropActionsRef = useRef({ openDiskFiles, insertImageFiles, showToast });
+  useEffect(() => {
+    fileDropActionsRef.current = { openDiskFiles, insertImageFiles, showToast };
+  });
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    listenFileDrops({
+      onHover: (hovering) => {
+        if (!hovering) dragCounterRef.current = 0;
+        setIsDraggingOver(hovering);
+      },
+      onDrop: async (paths, point) => {
+        const actions = fileDropActionsRef.current;
+        const mdPaths = paths.filter(isMarkdownPath);
+        const imagePaths = paths.filter(isImagePath);
+        if (mdPaths.length === 0 && imagePaths.length === 0) {
+          actions.showToast('Type de fichier non pris en charge (.md, .txt ou image).');
+          return;
+        }
+        try {
+          // Images d'abord : elles vont dans la note actuelle, avant l'ouverture d'éventuels nouveaux onglets
+          if (imagePaths.length > 0) {
+            const images = await Promise.all(imagePaths.map(readImageFile));
+            const blockEl = document
+              .elementFromPoint(point.x, point.y)
+              ?.closest('[data-block-idx]');
+            if (blockEl) {
+              const idx = Number(blockEl.getAttribute('data-block-idx'));
+              const rect = blockEl.getBoundingClientRect();
+              await actions.insertImageFiles(
+                images,
+                idx,
+                point.y < rect.top + rect.height / 2 ? 'before' : 'after'
+              );
+            } else {
+              await actions.insertImageFiles(images);
+            }
+          }
+          if (mdPaths.length > 0) {
+            actions.openDiskFiles(await readOpenedFiles(mdPaths));
+          }
+        } catch {
+          actions.showToast('Impossible de lire le fichier déposé.');
+        }
+      },
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  // Ouverture depuis l'explorateur (double-clic sur un .md, « Ouvrir avec ») : fichiers passés au lancement,
+  // ou envoyés par une seconde instance de MyNotes (une seule fenêtre reste ouverte).
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    const openPaths = async (paths: string[]) => {
+      if (paths.length === 0) return;
+      try {
+        fileDropActionsRef.current.openDiskFiles(await readOpenedFiles(paths));
+      } catch {
+        fileDropActionsRef.current.showToast('Impossible d’ouvrir le fichier.');
+      }
+    };
+
+    listenOpenFiles(openPaths).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    if (!launchFilesHandled) {
+      launchFilesHandled = true;
+      getLaunchFiles()
+        .then(openPaths)
+        .catch(() => {});
+    }
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   // Handle clipboard paste of images
   const handleEditorPaste = useCallback(

@@ -109,3 +109,89 @@ export async function writeTextToPath(
   const { writeTextFile } = await import('@tauri-apps/plugin-fs');
   await writeTextFile(path, content);
 }
+
+const IMAGE_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+};
+
+export function isMarkdownPath(path: string): boolean {
+  return /\.(md|markdown|txt)$/i.test(path);
+}
+
+export function isImagePath(path: string): boolean {
+  return /\.(png|jpe?g|webp|gif|svg)$/i.test(path);
+}
+
+/** Lit une image du disque et la renvoie sous forme de `File` (réutilisable par le code d'insertion d'images). */
+export async function readImageFile(path: string): Promise<File> {
+  const { readFile } = await import('@tauri-apps/plugin-fs');
+  const bytes = await readFile(path);
+  const ext = path.split('.').pop()?.toLowerCase() ?? '';
+  return new File([bytes as BlobPart], baseName(path), {
+    type: IMAGE_MIME[ext] ?? 'image/png',
+  });
+}
+
+export interface FileDropHandlers {
+  /** true quand un fichier survole la fenêtre, false quand il en sort ou est déposé */
+  onHover: (hovering: boolean) => void;
+  /** Chemins déposés + position du curseur en pixels CSS (relative à la fenêtre) */
+  onDrop: (paths: string[], point: { x: number; y: number }) => void;
+}
+
+/**
+ * Sous Tauri, les fichiers déposés sur la fenêtre sont interceptés par l'application
+ * (le navigateur intégré ne reçoit pas d'événement « drop » pour eux). Cette fonction écoute
+ * les événements de Tauri et fournit les vrais chemins. Renvoie la fonction de désabonnement.
+ */
+export async function listenFileDrops(
+  handlers: FileDropHandlers
+): Promise<() => void> {
+  const { getCurrentWebview } = await import('@tauri-apps/api/webview');
+  return getCurrentWebview().onDragDropEvent((event) => {
+    const payload = event.payload;
+    if (payload.type === 'enter' || payload.type === 'over') {
+      handlers.onHover(true);
+    } else if (payload.type === 'leave') {
+      handlers.onHover(false);
+    } else if (payload.type === 'drop') {
+      handlers.onHover(false);
+      // La position fournie par Tauri est en pixels physiques : on la convertit en pixels CSS
+      const ratio = window.devicePixelRatio || 1;
+      handlers.onDrop(payload.paths, {
+        x: payload.position.x / ratio,
+        y: payload.position.y / ratio,
+      });
+    }
+  });
+}
+
+/** Lit plusieurs fichiers texte du disque. */
+export async function readOpenedFiles(paths: string[]): Promise<OpenedFile[]> {
+  return Promise.all(
+    paths.map(async (path) => ({
+      path,
+      name: baseName(path),
+      content: await readTextFromPath(path),
+    }))
+  );
+}
+
+/** Fichiers passés à MyNotes au lancement (double-clic sur un .md dans l'explorateur, « Ouvrir avec »…). */
+export async function getLaunchFiles(): Promise<string[]> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<string[]>('get_launch_files');
+}
+
+/** Fichiers envoyés par une seconde instance de MyNotes (la fenêtre déjà ouverte les reçoit). */
+export async function listenOpenFiles(
+  callback: (paths: string[]) => void
+): Promise<() => void> {
+  const { listen } = await import('@tauri-apps/api/event');
+  return listen<string[]>('open-files', (event) => callback(event.payload));
+}

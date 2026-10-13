@@ -85,7 +85,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 
 ### 4. 🖼️ Gestion Avancée des Images & Médias
 * **Importation universelle** :
-  * **Glisser-déposer (Drag & Drop)** d'images (`.png`, `.jpg`, `.webp`, `.gif`, `.svg`) directement dans la fenêtre, ou entre deux blocs pour choisir l'emplacement exact. Un fichier `.md` déposé s'ouvre dans un nouvel onglet.
+  * **Glisser-déposer (Drag & Drop)** d'images (`.png`, `.jpg`, `.webp`, `.gif`, `.svg`) directement dans la fenêtre, ou entre deux blocs pour choisir l'emplacement exact. Un fichier `.md` déposé s'ouvre dans un nouvel onglet ; dans l'application de bureau, il garde son vrai chemin, donc `Ctrl + S` écrit directement dedans.
   * **Coller depuis le presse-papiers (`Ctrl+V`)** pour insérer des captures d'écran instantanément.
 * **Contrôle de mise en page avancé** :
   * Redimensionnement à la souris grâce aux poignées de l'image (de 15 % à 100 % de la largeur).
@@ -143,6 +143,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
   * `Ctrl + S` écrit directement dans le fichier d'origine, sans téléchargement ni copie. Une note jamais enregistrée (ou renommée) ouvre la boîte « Enregistrer sous ».
   * Si le fichier a été déplacé ou n'est plus accessible, MyNotes propose automatiquement « Enregistrer sous ».
   * Dans un navigateur (`npm run dev`), l'enregistrement reste un téléchargement du fichier `.md`.
+* **Ouverture depuis l'explorateur (double-clic)** : l'installateur associe MyNotes aux fichiers `.md` et `.markdown`. Pour en faire l'éditeur par défaut : clic droit sur un `.md` → *Ouvrir avec* → *Choisir une autre application* → MyNotes → *Toujours*. Une seule fenêtre reste ouverte : un nouveau double-clic ajoute simplement le fichier dans un onglet de la fenêtre existante. Vous pouvez aussi lancer `MyNotes.exe chemin\vers\fichier.md` en ligne de commande.
 
 ---
 
