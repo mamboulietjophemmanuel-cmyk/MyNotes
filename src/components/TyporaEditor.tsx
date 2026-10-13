@@ -21,6 +21,7 @@ import {
   Workflow,
 } from 'lucide-react';
 import { MermaidBlock } from './MermaidBlock';
+import { SearchMatch } from '../utils/searchEngine';
 
 export type ImageWrapMode = 'break' | 'wrap';
 export type ImageWrapSide = 'left' | 'right';
@@ -286,11 +287,80 @@ function renderLatexInline(latex: string, displayMode: boolean): string {
   }
 }
 
+function highlightMatchesInString(
+  str: string,
+  regex?: RegExp | null,
+  keyPrefix = 'hl',
+  blockIdx?: number,
+  activeMatch?: SearchMatch | null
+): React.ReactNode {
+  if (!regex || !str) return str;
+
+  const localRegex = new RegExp(regex.source, regex.flags);
+  const elements: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let matchIdx = 0;
+  let m: RegExpExecArray | null;
+
+  while ((m = localRegex.exec(str)) !== null) {
+    if (m[0].length === 0) {
+      localRegex.lastIndex++;
+      continue;
+    }
+
+    const start = m.index;
+    const end = start + m[0].length;
+
+    if (start > lastIndex) {
+      elements.push(str.slice(lastIndex, start));
+    }
+
+    const matchedText = m[0];
+    const isBlockActive =
+      activeMatch !== undefined &&
+      activeMatch !== null &&
+      activeMatch.blockIndex === blockIdx;
+
+    const isThisActive =
+      isBlockActive &&
+      (activeMatch.matchInBlockIndex !== undefined
+        ? activeMatch.matchInBlockIndex === matchIdx
+        : true);
+
+    elements.push(
+      <mark
+        key={`${keyPrefix}-m-${matchIdx}`}
+        data-search-active={isThisActive ? 'true' : undefined}
+        id={isThisActive ? 'adw-active-match' : undefined}
+        className={isThisActive ? 'adw-search-match-active' : 'adw-search-match'}
+      >
+        {matchedText}
+      </mark>
+    );
+
+    matchIdx++;
+    lastIndex = end;
+  }
+
+  if (lastIndex === 0) {
+    return str;
+  }
+
+  if (lastIndex < str.length) {
+    elements.push(str.slice(lastIndex));
+  }
+
+  return <React.Fragment key={`${keyPrefix}-frag`}>{elements}</React.Fragment>;
+}
+
 function renderInlineFormatting(
   text: string,
   assets: Record<string, MediaAsset>,
   onImageClick?: (src: string, alt: string) => void,
-  keyPrefix = 'ty-inl'
+  keyPrefix = 'ty-inl',
+  searchRegex?: RegExp | null,
+  activeMatch?: SearchMatch | null,
+  blockIdx?: number
 ): React.ReactNode[] {
   const pattern =
     /(!\[[^\]]*\]\([^)]+\)|\$[^$\n]+\$|`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*|~~[^~\n]+~~|\[[^\]]+\]\([^)]+\))/g;
@@ -344,7 +414,17 @@ function renderInlineFormatting(
 
     // Inline code `...`
     if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
-      return <code key={key}>{part.slice(1, -1)}</code>;
+      return (
+        <code key={key}>
+          {highlightMatchesInString(
+            part.slice(1, -1),
+            searchRegex,
+            `${key}-c`,
+            blockIdx,
+            activeMatch
+          )}
+        </code>
+      );
     }
 
     // Bold **...**
@@ -355,7 +435,10 @@ function renderInlineFormatting(
             part.slice(2, -2),
             assets,
             onImageClick,
-            `${key}-b`
+            `${key}-b`,
+            searchRegex,
+            activeMatch,
+            blockIdx
           )}
         </strong>
       );
@@ -369,7 +452,10 @@ function renderInlineFormatting(
             part.slice(1, -1),
             assets,
             onImageClick,
-            `${key}-i`
+            `${key}-i`,
+            searchRegex,
+            activeMatch,
+            blockIdx
           )}
         </em>
       );
@@ -379,7 +465,13 @@ function renderInlineFormatting(
     if (part.startsWith('~~') && part.endsWith('~~') && part.length > 4) {
       return (
         <del key={key} className="opacity-65">
-          {part.slice(2, -2)}
+          {highlightMatchesInString(
+            part.slice(2, -2),
+            searchRegex,
+            `${key}-del`,
+            blockIdx,
+            activeMatch
+          )}
         </del>
       );
     }
@@ -397,13 +489,25 @@ function renderInlineFormatting(
             onClick={(e) => e.stopPropagation()}
             className="font-medium text-[var(--adw-accent)] underline decoration-[var(--adw-accent)]/40 underline-offset-3 hover:decoration-[var(--adw-accent)]"
           >
-            {m[1]}
+            {highlightMatchesInString(
+              m[1],
+              searchRegex,
+              `${key}-link`,
+              blockIdx,
+              activeMatch
+            )}
           </a>
         );
       }
     }
 
-    return part;
+    return highlightMatchesInString(
+      part,
+      searchRegex,
+      key,
+      blockIdx,
+      activeMatch
+    );
   });
 }
 
@@ -802,7 +906,18 @@ const WysiwygTableBlock: React.FC<{
   assets: Record<string, MediaAsset>;
   onChange: (newRaw: string) => void;
   onDeleteBlock: () => void;
-}> = ({ raw, assets, onChange, onDeleteBlock }) => {
+  searchRegex?: RegExp | null;
+  activeMatch?: SearchMatch | null;
+  blockIdx?: number;
+}> = ({
+  raw,
+  assets,
+  onChange,
+  onDeleteBlock,
+  searchRegex,
+  activeMatch,
+  blockIdx,
+}) => {
   const [editingCell, setEditingCell] = useState<{ r: number; c: number } | null>(
     null
   );
@@ -962,7 +1077,15 @@ const WysiwygTableBlock: React.FC<{
                     ) : (
                       <div className="flex items-center justify-between gap-1">
                         <span className="flex-1">
-                          {renderInlineFormatting(header, assets)}
+                          {renderInlineFormatting(
+                            header,
+                            assets,
+                            undefined,
+                            `th-${colIdx}`,
+                            searchRegex,
+                            activeMatch,
+                            blockIdx
+                          )}
                         </span>
                         <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/th:opacity-100">
                           <button
@@ -1065,7 +1188,15 @@ const WysiwygTableBlock: React.FC<{
                       ) : (
                         <div className="flex items-center justify-between gap-1">
                           <span className="flex-1">
-                            {renderInlineFormatting(cellVal, assets)}
+                            {renderInlineFormatting(
+                              cellVal,
+                              assets,
+                              undefined,
+                              `td-${rowIdx}-${colIdx}`,
+                              searchRegex,
+                              activeMatch,
+                              blockIdx
+                            )}
                           </span>
                           {colIdx === parsed.headers.length - 1 &&
                             parsed.rows.length > 1 && (
@@ -1601,6 +1732,11 @@ interface TyporaEditorProps {
   onOpenFormulaModal?: () => void;
   onOpenDiagramModal?: () => void;
   onTriggerImageUpload?: () => void;
+  // Search integration
+  searchQuery?: string;
+  searchRegex?: RegExp | null;
+  activeMatch?: SearchMatch | null;
+  activeMatchIndex?: number | null;
 }
 
 export const TyporaEditor: React.FC<TyporaEditorProps> = ({
@@ -1614,6 +1750,9 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
   onOpenFormulaModal,
   onOpenDiagramModal,
   onTriggerImageUpload,
+  searchRegex,
+  activeMatch,
+  activeMatchIndex,
 }) => {
   // Keep blocks in state while editing so clearing a block's text never causes it to vanish mid-typing
   const [blocks, setBlocks] = useState<MdBlock[]>(() =>
@@ -1631,6 +1770,23 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
   const lastEmittedMarkdownRef = useRef<string>(markdown);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const blocksRef = useRef<MdBlock[]>(blocks);
+
+  // Smoothly scroll to active search match
+  useEffect(() => {
+    if (activeMatch) {
+      setTimeout(() => {
+        const activeEl = document.getElementById('adw-active-match');
+        if (activeEl) {
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (activeMatch.blockIndex !== undefined) {
+          const blockEl = editorContainerRef.current?.querySelector(
+            `[data-block-idx="${activeMatch.blockIndex}"]`
+          );
+          blockEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 40);
+    }
+  }, [activeMatch, activeMatchIndex]);
 
   useEffect(() => {
     blocksRef.current = blocks;
@@ -1806,6 +1962,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
             <Tag
               key={block.id}
               id={cleanId}
+              data-block-idx={idx}
               onClick={(e: React.MouseEvent) => {
                 setInitialCaretOffset(null);
                 setLastClickPoint({ x: e.clientX, y: e.clientY });
@@ -1814,7 +1971,15 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
               className="group cursor-text rounded-lg transition-colors min-h-[1.4em]"
             >
               {text.trim() ? (
-                renderInlineFormatting(text, assets, onImageClick, `h-${idx}`)
+                renderInlineFormatting(
+                  text,
+                  assets,
+                  onImageClick,
+                  `h-${idx}`,
+                  searchRegex,
+                  activeMatch,
+                  idx
+                )
               ) : (
                 <span className="text-[var(--adw-fg-muted)] opacity-50">
                   Titre vide...
@@ -1948,6 +2113,9 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
               assets={assets}
               onChange={(newRaw) => updateBlockAt(idx, newRaw)}
               onDeleteBlock={() => deleteBlockAt(idx)}
+              searchRegex={searchRegex}
+              activeMatch={activeMatch}
+              blockIdx={idx}
             />
           );
         }
@@ -1964,21 +2132,23 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
           // If language is mermaid, render with dedicated interactive MermaidBlock
           if (lang.toLowerCase() === 'mermaid') {
             return (
-              <MermaidBlock
-                key={block.id}
-                code={innerCode}
-                onChange={(newCode) =>
-                  updateBlockAt(idx, `\`\`\`mermaid\n${newCode}\n\`\`\``)
-                }
-                onDelete={() => deleteBlockAt(idx)}
-                isEditable={true}
-              />
+              <div key={block.id} data-block-idx={idx}>
+                <MermaidBlock
+                  code={innerCode}
+                  onChange={(newCode) =>
+                    updateBlockAt(idx, `\`\`\`mermaid\n${newCode}\n\`\`\``)
+                  }
+                  onDelete={() => deleteBlockAt(idx)}
+                  isEditable={true}
+                />
+              </div>
             );
           }
 
           return (
             <div
               key={block.id}
+              data-block-idx={idx}
               className="my-4 overflow-hidden rounded-xl border border-[var(--adw-border)] bg-[var(--adw-code-bg)]"
             >
               <div className="flex items-center justify-between border-b border-[var(--adw-border-subtle)] px-3.5 py-1.5 text-xs text-[var(--adw-fg-muted)]">
@@ -2045,6 +2215,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
             return (
               <blockquote
                 key={block.id}
+                data-block-idx={idx}
                 className="ring-1 ring-[var(--adw-accent)]"
               >
                 <AutoTextarea
@@ -2072,6 +2243,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
           return (
             <blockquote
               key={block.id}
+              data-block-idx={idx}
               onClick={() => setFocusedIndex(idx)}
               className="cursor-text transition-colors hover:border-[var(--adw-accent)]/50"
             >
@@ -2080,7 +2252,10 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
                   cleanQuote,
                   assets,
                   onImageClick,
-                  `q-${idx}`
+                  `q-${idx}`,
+                  searchRegex,
+                  activeMatch,
+                  idx
                 )}
               </p>
             </blockquote>
@@ -2140,6 +2315,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
             return (
               <ol
                 key={block.id}
+                data-block-idx={idx}
                 onClick={() => setFocusedIndex(idx)}
                 className="cursor-text rounded-lg transition-colors hover:bg-[var(--adw-hover-bg)]/40 py-1"
               >
@@ -2149,7 +2325,10 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
                       it.text,
                       assets,
                       onImageClick,
-                      `ol-${idx}-${it.lineIdx}`
+                      `ol-${idx}-${it.lineIdx}`,
+                      searchRegex,
+                      activeMatch,
+                      idx
                     )}
                   </li>
                 ))}
@@ -2160,6 +2339,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
           return (
             <ul
               key={block.id}
+              data-block-idx={idx}
               className={
                 hasTasks
                   ? '!list-none !pl-1 space-y-1.5 my-3'
@@ -2198,7 +2378,10 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
                         it.text,
                         assets,
                         onImageClick,
-                        `tsk-${idx}-${it.lineIdx}`
+                        `tsk-${idx}-${it.lineIdx}`,
+                        searchRegex,
+                        activeMatch,
+                        idx
                       )}
                     </span>
                   </li>
@@ -2208,7 +2391,10 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
                       it.text,
                       assets,
                       onImageClick,
-                      `ul-${idx}-${it.lineIdx}`
+                      `ul-${idx}-${it.lineIdx}`,
+                      searchRegex,
+                      activeMatch,
+                      idx
                     )}
                   </li>
                 )
@@ -2222,6 +2408,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
           return (
             <div
               key={block.id}
+              data-block-idx={idx}
               onClick={() => setFocusedIndex(idx)}
               className="group relative py-2 cursor-pointer"
             >
@@ -2235,6 +2422,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
           return (
             <p
               key={block.id}
+              data-block-idx={idx}
               className="cursor-text rounded-lg py-0.5 transition-colors min-h-[1.7em]"
             >
               <AutoTextarea
@@ -2265,6 +2453,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
         return (
           <p
             key={block.id}
+            data-block-idx={idx}
             onClick={(e) => {
               setInitialCaretOffset(null);
               setLastClickPoint({ x: e.clientX, y: e.clientY });
@@ -2277,7 +2466,10 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
                 block.raw.split('\n').join(' '),
                 assets,
                 onImageClick,
-                `p-${idx}`
+                `p-${idx}`,
+                searchRegex,
+                activeMatch,
+                idx
               )
             ) : (
               <span className="text-[var(--adw-fg-muted)] opacity-60">

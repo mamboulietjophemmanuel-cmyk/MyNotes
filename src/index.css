@@ -299,3 +299,44 @@ body {
   text-align: center;
 }
 
+/* =====================================================================
+   FIND & REPLACE HIGHLIGHTS (Libadwaita / Typora aesthetic)
+   ===================================================================== */
+.adw-search-match {
+  background-color: rgba(250, 204, 21, 0.45);
+  color: inherit;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.4);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.adw-search-match-active {
+  background-color: #f59e0b !important;
+  color: #111827 !important;
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7), 0 2px 4px rgba(0, 0, 0, 0.18) !important;
+  font-weight: 600;
+  animation: adw-pulse-active 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes adw-pulse-active {
+  0% {
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7), 0 2px 4px rgba(0, 0, 0, 0.18);
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.9), 0 2px 6px rgba(245, 158, 11, 0.4);
+  }
+}
+
+.dark .adw-search-match {
+  background-color: rgba(234, 179, 8, 0.35);
+  color: inherit;
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.45);
+}
+
+.dark .adw-search-match-active {
+  background-color: #fbbf24 !important;
+  color: #030712 !important;
+}
+
+

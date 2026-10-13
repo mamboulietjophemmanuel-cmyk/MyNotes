@@ -110,13 +110,25 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 
 ---
 
-### 6. 💻 Blocs de Code & Productivité Développeur
+### 6. 🔍 Recherche & Remplacement Intégré (Find & Replace)
+* **Barre d'outils flottante discrète (`Ctrl+F` / `Ctrl+H`)** : Conçue dans les standards visuels GNOME Adwaita, elle s'affiche en haut à droite sans perturber la disposition du texte.
+* **Surlignage en temps réel** : Toutes les occurrences sont mises en valeur instantanément dans le document, avec distinction visuelle ambrée et défilement fluide vers l'occurrence active.
+* **Compteur dynamique** : Affichage précis du nombre de résultats (`1 / 14` ou `0 résultat`).
+* **Options de recherche avancées** :
+  * **Respect de la casse (`Aa`)**
+  * **Mot entier (`\b`)**
+  * **Expressions régulières (`.*`)** avec validation syntaxique instantanée.
+* **Remplacement ciblé & global** : Remplacez l'occurrence active (`Entrée`) ou effectuez un remplacement atomique de tout le document (`Tout remplacer` / `Alt+A`) avec notification de confirmation.
+
+---
+
+### 7. 💻 Blocs de Code & Productivité Développeur
 * **Blocs de code stylisés (` ```langage `)** : Affichage automatique du badge de langage (`python`, `typescript`, `rust`, `sql`, `json`, etc.).
 * **Copie rapide en un clic** : Bouton **Copier** intégré dans l'en-tête de chaque bloc de code avec confirmation visuelle.
 
 ---
 
-### 7. 🗂️ Gestion Multi-Onglets & Sessions Intelligentes
+### 8. 🗂️ Gestion Multi-Onglets & Sessions Intelligentes
 * **Barre d'onglets fluide** : Ouvrez plusieurs documents simultanément, renommez vos notes d'un simple clic sur le titre dans la barre supérieure.
 * **Détection intelligente des brouillons** :
   * Les nouvelles notes vierges (`Sans titre 1.md`) non modifiées se ferment sans fenêtre d'alerte intrusive et libèrent automatiquement leur numéro.
@@ -128,7 +140,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 
 ---
 
-### 7. 🎨 Interface Libadwaita & Confort de Lecture
+### 9. 🎨 Interface Libadwaita & Confort de Lecture
 * **3 Modes de thème** : *Système (Auto)*, *Clair* ou *Sombre*, synchronisés en temps réel avec votre système d'exploitation.
 * **Contrôle du zoom** : Ajustez la taille d'affichage de `80%` à `150%` depuis le menu principal.
 * **Statistiques en temps réel** : Compteur de lignes, de mots et de caractères affiché en permanence dans la barre d'état inférieure.
@@ -143,13 +155,17 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 | `Ctrl + O` | Ouvrir un fichier Markdown (`.md`, `.markdown`, `.txt`) depuis l'ordinateur |
 | `Ctrl + S` | Enregistrer / Exporter la note active au format `.md` |
 | `Ctrl + W` | Fermer l'onglet actif |
+| `Ctrl + F` | Ouvrir la barre de recherche dans la note |
+| `Ctrl + H` | Ouvrir la recherche avec le champ de remplacement déplié |
+| `F3` / `Entrée` | Occurrence suivante dans la recherche |
+| `Maj + F3` / `Maj + Entrée` | Occurrence précédente dans la recherche |
 | `Ctrl + V` | Coller du texte ou insérer une image depuis le presse-papiers |
 | `Ctrl + B` | Mettre la sélection en **Gras** |
 | `Ctrl + I` | Mettre la sélection en *Italique* |
 | `Ctrl + K` | Insérer un lien hypertexte sur la sélection |
 | `Entrée` / `Shift + Entrée` | Naviguer entre les blocs ou valider l'édition |
 | `Retour arrière (Backspace)` | Fusionner le paragraphe actuel avec le paragraphe précédent (en début de bloc) |
-| `Échap (Esc)` | Quitter l'édition du bloc actif et afficher le rendu final |
+| `Échap (Esc)` | Fermer la recherche ou quitter l'édition du bloc actif |
 
 ---
 

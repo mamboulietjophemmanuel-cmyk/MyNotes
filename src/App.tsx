@@ -25,6 +25,7 @@ import {
   FolderOpen,
   FileSearch,
   Workflow,
+  Replace,
 } from 'lucide-react';
 import {
   MarkdownDocument,
@@ -38,6 +39,14 @@ import { TyporaEditor } from './components/TyporaEditor';
 import { TableDialog } from './components/TableDialog';
 import { FormulaDialog } from './components/FormulaDialog';
 import { DiagramDialog } from './components/DiagramDialog';
+import { FindReplaceBar } from './components/FindReplaceBar';
+import {
+  findMatches,
+  replaceMatchAt,
+  replaceAllMatches,
+  compileSearchPattern,
+  SearchOptions,
+} from './utils/searchEngine';
 
 const STORAGE_KEY_DOCS = 'adwnotes_documents_v2';
 const STORAGE_KEY_TABS = 'adwnotes_tabs_v2';
@@ -279,6 +288,18 @@ export default function App() {
   );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Find & Replace state
+  const [findBarOpen, setFindBarOpen] = useState<boolean>(false);
+  const [findQuery, setFindQuery] = useState<string>('');
+  const [replaceText, setReplaceText] = useState<string>('');
+  const [showReplaceRow, setShowReplaceRow] = useState<boolean>(false);
+  const [searchOptions, setSearchOptions] = useState<SearchOptions>({
+    matchCase: false,
+    wholeWord: false,
+    useRegex: false,
+  });
+  const [activeMatchIndex, setActiveMatchIndex] = useState<number | null>(0);
+
   // Drag & Drop + Inline Title Rename
   const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
   const [isRenamingTitle, setIsRenamingTitle] = useState<boolean>(false);
@@ -373,6 +394,83 @@ export default function App() {
     },
     [activeDocument, updateActiveContent]
   );
+
+  // Find & Replace match computations
+  const searchResult = useMemo(() => {
+    if (!activeDocument?.content || !findQuery) {
+      return { matches: [], regexError: null };
+    }
+    return findMatches(activeDocument.content, findQuery, searchOptions);
+  }, [activeDocument?.content, findQuery, searchOptions]);
+
+  const searchRegex = useMemo(() => {
+    if (!findQuery) return null;
+    return compileSearchPattern(findQuery, searchOptions).regex;
+  }, [findQuery, searchOptions]);
+
+  // Keep active match index valid
+  useEffect(() => {
+    if (searchResult.matches.length === 0) {
+      setActiveMatchIndex(null);
+    } else if (
+      activeMatchIndex === null ||
+      activeMatchIndex >= searchResult.matches.length
+    ) {
+      setActiveMatchIndex(0);
+    }
+  }, [searchResult.matches.length, activeMatchIndex]);
+
+  const currentMatch =
+    activeMatchIndex !== null ? searchResult.matches[activeMatchIndex] || null : null;
+
+  const handleOpenFind = useCallback((withReplace = false) => {
+    const sel = window.getSelection()?.toString()?.trim();
+    if (sel && sel.length > 0 && sel.length < 120 && !sel.includes('\n')) {
+      setFindQuery(sel);
+    }
+    setFindBarOpen(true);
+    if (withReplace) {
+      setShowReplaceRow(true);
+    }
+  }, []);
+
+  const handleFindNext = useCallback(() => {
+    if (searchResult.matches.length === 0) return;
+    setActiveMatchIndex((prev) => {
+      if (prev === null) return 0;
+      return (prev + 1) % searchResult.matches.length;
+    });
+  }, [searchResult.matches.length]);
+
+  const handleFindPrev = useCallback(() => {
+    if (searchResult.matches.length === 0) return;
+    setActiveMatchIndex((prev) => {
+      if (prev === null) return searchResult.matches.length - 1;
+      return (prev - 1 + searchResult.matches.length) % searchResult.matches.length;
+    });
+  }, [searchResult.matches.length]);
+
+  const handleReplaceCurrent = useCallback(() => {
+    if (!activeDocument || !currentMatch) return;
+    const updated = replaceMatchAt(activeDocument.content, currentMatch, replaceText);
+    updateActiveContent(updated);
+  }, [activeDocument, currentMatch, replaceText, updateActiveContent]);
+
+  const handleReplaceAll = useCallback(() => {
+    if (!activeDocument || !findQuery) return;
+    const res = replaceAllMatches(
+      activeDocument.content,
+      findQuery,
+      replaceText,
+      searchOptions
+    );
+    if (res.count > 0) {
+      updateActiveContent(res.newText);
+      showToast(`${res.count} occurrence${res.count > 1 ? 's' : ''} remplacée${res.count > 1 ? 's' : ''}.`);
+    } else {
+      showToast('Aucune occurrence trouvée.');
+    }
+  }, [activeDocument, findQuery, replaceText, searchOptions, updateActiveContent, showToast]);
 
   // Close the native Tauri window (or show closed state in web preview)
   const triggerApplicationExit = useCallback(
@@ -713,12 +811,23 @@ export default function App() {
         } else if (key === 'w') {
           e.preventDefault();
           if (activeDocument) handleCloseTab(activeDocument.id);
+        } else if (key === 'f') {
+          e.preventDefault();
+          handleOpenFind(false);
+        } else if (key === 'h') {
+          e.preventDefault();
+          handleOpenFind(true);
         }
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        if (e.shiftKey) handleFindPrev();
+        else handleFindNext();
       } else if (e.key === 'Escape') {
         setLightboxImage(null);
         setTableModalOpen(false);
         setFormulaModalOpen(false);
         setDiagramModalOpen(false);
+        setFindBarOpen(false);
         setOpenPopoverVisible(false);
         setPrimaryMenuOpen(false);
         setInsertPopoverOpen(false);
@@ -732,6 +841,9 @@ export default function App() {
     handleCreateNewDocument,
     handleCloseTab,
     activeDocument,
+    handleOpenFind,
+    handleFindNext,
+    handleFindPrev,
   ]);
 
   // Filtered recent documents in the "Open v" popover
@@ -984,9 +1096,25 @@ export default function App() {
           </span>
         </div>
 
-        {/* Right Zone: Document Insert/Tools Icon + Hamburger Menu (☰) + Circular Close Button (✕) */}
+        {/* Right Zone: Search + Insert + Hamburger Menu + Close Button */}
         <div className="flex items-center gap-1 shrink-0">
-          {/* Quick Insert / Document Info Popover Button (matches the page-magnifying-glass icon in GNOME Text Editor) */}
+          {/* Find & Replace Search Button (Ctrl+F / Ctrl+H) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (findBarOpen) {
+                setFindBarOpen(false);
+              } else {
+                handleOpenFind(false);
+              }
+            }}
+            className={`adw-btn p-1.5 ${findBarOpen ? 'adw-btn-active' : ''}`}
+            title="Rechercher et remplacer (Ctrl+F / Ctrl+H)"
+          >
+            <Search className="h-[17px] w-[17px]" />
+          </button>
+
+          {/* Quick Insert / Document Info Popover Button */}
           <div className="relative" ref={insertPopoverRef}>
             <button
               type="button"
@@ -1137,6 +1265,40 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
+                    handleOpenFind(false);
+                    setPrimaryMenuOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-[var(--adw-fg)] hover:bg-[var(--adw-hover-bg)]"
+                >
+                  <span className="flex items-center gap-2">
+                    <Search className="h-3.5 w-3.5 text-[var(--adw-accent)]" />
+                    <span>Rechercher...</span>
+                  </span>
+                  <span className="rounded bg-[var(--adw-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--adw-fg-muted)]">
+                    Ctrl+F
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenFind(true);
+                    setPrimaryMenuOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-[var(--adw-fg)] hover:bg-[var(--adw-hover-bg)]"
+                >
+                  <span className="flex items-center gap-2">
+                    <Replace className="h-3.5 w-3.5 text-[var(--adw-accent)]" />
+                    <span>Remplacer...</span>
+                  </span>
+                  <span className="rounded bg-[var(--adw-code-bg)] px-1.5 py-0.5 text-[10px] text-[var(--adw-fg-muted)]">
+                    Ctrl+H
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
                     handleDownloadMarkdown(true);
                     setPrimaryMenuOpen(false);
                   }}
@@ -1240,7 +1402,28 @@ export default function App() {
       {/* =====================================================================
           3. PURE UNCLUTTERED WYSIWYG CANVAS (Starts immediately below TabBar)
          ===================================================================== */}
-      <main className="flex-1 overflow-y-auto bg-[var(--adw-view-bg)]">
+      <main className="relative flex-1 overflow-y-auto bg-[var(--adw-view-bg)]">
+        {/* Floating Adwaita Find & Replace Bar */}
+        <FindReplaceBar
+          isOpen={findBarOpen}
+          onClose={() => setFindBarOpen(false)}
+          query={findQuery}
+          onQueryChange={setFindQuery}
+          options={searchOptions}
+          onOptionsChange={setSearchOptions}
+          showReplace={showReplaceRow}
+          onToggleReplace={setShowReplaceRow}
+          replaceText={replaceText}
+          onReplaceTextChange={setReplaceText}
+          matchesCount={searchResult.matches.length}
+          currentMatchIndex={activeMatchIndex}
+          regexError={searchResult.regexError}
+          onFindNext={handleFindNext}
+          onFindPrev={handleFindPrev}
+          onReplaceCurrent={handleReplaceCurrent}
+          onReplaceAll={handleReplaceAll}
+        />
+
         {activeDocument && (
           <TyporaEditor
             markdown={activeDocument.content}
@@ -1253,6 +1436,10 @@ export default function App() {
             onOpenFormulaModal={() => setFormulaModalOpen(true)}
             onOpenDiagramModal={() => setDiagramModalOpen(true)}
             onTriggerImageUpload={() => imageFileInputRef.current?.click()}
+            searchQuery={findQuery}
+            searchRegex={searchRegex}
+            activeMatch={currentMatch}
+            activeMatchIndex={activeMatchIndex}
           />
         )}
       </main>
