@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { MermaidBlock } from './MermaidBlock';
 import { HighlightedCodeEditor } from './HighlightedCodeEditor';
+import { isImageFile, isImageUrl, isMarkdownFile } from '../utils/fileTypes';
 import { SearchMatch } from '../utils/searchEngine';
 
 export type ImageWrapMode = 'break' | 'wrap';
@@ -1840,7 +1841,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
       const uri =
         e.dataTransfer.getData('text/uri-list') ||
         e.dataTransfer.getData('text/plain');
-      if (uri && /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(uri.trim())) {
+      if (uri && isImageUrl(uri)) {
         const snippet = `![image|100%](${uri.trim()})`;
         insertBlockBelow(
           position === 'before' ? Math.max(0, idx - 1) : idx,
@@ -1850,17 +1851,8 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
       return;
     }
 
-    const imageFiles = files.filter(
-      (f) =>
-        f.type.startsWith('image/') ||
-        /\.(png|jpe?g|webp|gif|svg)$/i.test(f.name)
-    );
-    const mdFiles = files.filter(
-      (f) =>
-        /\.(md|markdown|txt)$/i.test(f.name) ||
-        f.type === 'text/markdown' ||
-        f.type === 'text/plain'
-    );
+    const imageFiles = files.filter(isImageFile);
+    const mdFiles = files.filter(isMarkdownFile);
 
     if (imageFiles.length > 0 && onDropImageFile) {
       onDropImageFile(imageFiles, idx, position);
@@ -1879,24 +1871,15 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
       const uri =
         e.dataTransfer.getData('text/uri-list') ||
         e.dataTransfer.getData('text/plain');
-      if (uri && /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(uri.trim())) {
+      if (uri && isImageUrl(uri)) {
         const snippet = `![image|100%](${uri.trim()})`;
         insertBlockBelow(Math.max(0, blocks.length - 1), snippet);
       }
       return;
     }
 
-    const imageFiles = files.filter(
-      (f) =>
-        f.type.startsWith('image/') ||
-        /\.(png|jpe?g|webp|gif|svg)$/i.test(f.name)
-    );
-    const mdFiles = files.filter(
-      (f) =>
-        /\.(md|markdown|txt)$/i.test(f.name) ||
-        f.type === 'text/markdown' ||
-        f.type === 'text/plain'
-    );
+    const imageFiles = files.filter(isImageFile);
+    const mdFiles = files.filter(isMarkdownFile);
 
     if (imageFiles.length > 0 && onDropImageFile) {
       onDropImageFile(imageFiles, Math.max(0, blocks.length - 1), 'after');

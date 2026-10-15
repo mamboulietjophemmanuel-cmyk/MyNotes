@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from 'react';
 import {
-  Search,
   ChevronDown,
   ChevronUp,
   ChevronRight,
@@ -9,7 +8,6 @@ import {
   WholeWord,
   Regex,
   Replace,
-  ReplaceAll,
   AlertTriangle,
 } from 'lucide-react';
 import { SearchOptions } from '../utils/searchEngine';

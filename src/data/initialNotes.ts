@@ -166,7 +166,7 @@ flowchart LR
     updatedAt: 'Hier · 18:05',
     content: `# Guide rapide : Syntaxe Markdown & Raccourcis Windows
 
-Bienvenue dans **AdwNotes**, un environnement de prise de notes inspiré du langage de design **GNOME Libadwaita** et optimisé pour **Windows**.
+Bienvenue dans **MyNotes**, un environnement de prise de notes inspiré du langage de design **GNOME Libadwaita** et optimisé pour **Windows**.
 
 ## 1. Raccourcis clavier Windows
 

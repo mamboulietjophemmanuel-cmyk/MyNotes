@@ -72,6 +72,7 @@ import {
   saveFileDialog,
   writeTextToPath,
 } from './utils/nativeFiles';
+import { isImageFile, isMarkdownFile } from './utils/fileTypes';
 
 // Les fichiers passés au lancement ne doivent être ouverts qu'une fois, même si l'interface se recharge
 let launchFilesHandled = false;
@@ -278,6 +279,7 @@ export default function App() {
   const [isAppClosedInPreview, setIsAppClosedInPreview] =
     useState<boolean>(false);
 
+  // Notes et onglets : écrits immédiatement (aucune perte possible, même en cas de fermeture brutale)
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_DOCS, JSON.stringify(documents));
@@ -285,13 +287,27 @@ export default function App() {
         localStorage.setItem(STORAGE_KEY_TABS, JSON.stringify(openTabs));
         localStorage.setItem(STORAGE_KEY_ACTIVE_TAB, activeDocId);
       }
+    } catch {
+      // storage quota fallback
+    }
+  }, [documents, openTabs, activeDocId, isAppClosedInPreview]);
 
+  // Images : leur sérialisation (base64) est lourde, elle est donc différée jusqu'à une courte pause
+  // dans la frappe au lieu d'être refaite à chaque touche. Les valeurs sont lues au moment de l'écriture.
+  const assetsPersistRef = useRef({ documents, assets });
+  useEffect(() => {
+    assetsPersistRef.current = { documents, assets };
+  }, [documents, assets]);
+
+  const persistAssets = useCallback(() => {
+    const latest = assetsPersistRef.current;
+    try {
       // Persist only custom uploaded assets that are referenced in at least one document
-      const allContent = documents
+      const allContent = latest.documents
         .map((d) => `${d.content}\n${d.savedContent || ''}`)
         .join('\n');
       const customAssets: Record<string, MediaAsset> = {};
-      Object.entries(assets).forEach(([id, asset]) => {
+      Object.entries(latest.assets).forEach(([id, asset]) => {
         if (!INITIAL_ASSETS[id] && allContent.includes(`asset://${id}`)) {
           customAssets[id] = asset;
         }
@@ -300,7 +316,22 @@ export default function App() {
     } catch {
       // storage quota fallback
     }
-  }, [documents, openTabs, activeDocId, assets, isAppClosedInPreview]);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(persistAssets, 400);
+    return () => window.clearTimeout(timer);
+  }, [documents, assets, persistAssets]);
+
+  // Écriture immédiate si la fenêtre se ferme ou se recharge avant la fin de la pause
+  useEffect(() => {
+    window.addEventListener('pagehide', persistAssets);
+    window.addEventListener('beforeunload', persistAssets);
+    return () => {
+      window.removeEventListener('pagehide', persistAssets);
+      window.removeEventListener('beforeunload', persistAssets);
+    };
+  }, [persistAssets]);
 
   // 3. Minimalist GNOME Text Editor Popovers & Modals
   const [openPopoverVisible, setOpenPopoverVisible] = useState<boolean>(false);
@@ -532,6 +563,8 @@ export default function App() {
       nextDocsOverride?: MarkdownDocument[],
       nextTabsOverride?: OpenTab[]
     ) => {
+      // Écrit les images en attente avant de fermer
+      persistAssets();
       try {
         if (nextDocsOverride) {
           localStorage.setItem(
@@ -575,7 +608,7 @@ export default function App() {
         setIsAppClosedInPreview(true);
       }
     },
-    []
+    [persistAssets]
   );
 
   // Open a document in a tab
@@ -899,12 +932,7 @@ export default function App() {
   const openMarkdownFiles = useCallback(
     async (fileList: File[] | FileList) => {
       const files = Array.from(fileList);
-      const mdFiles = files.filter(
-        (f) =>
-          /\.(md|markdown|txt)$/i.test(f.name) ||
-          f.type === 'text/markdown' ||
-          f.type === 'text/plain'
-      );
+      const mdFiles = files.filter(isMarkdownFile);
       if (mdFiles.length === 0) return;
 
       const newDocs: MarkdownDocument[] = [];
@@ -952,11 +980,7 @@ export default function App() {
       position: 'before' | 'after' = 'after'
     ) => {
       const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
-      const validImages = files.filter(
-        (f) =>
-          f.type.startsWith('image/') ||
-          /\.(png|jpe?g|webp|gif|svg)$/i.test(f.name)
-      );
+      const validImages = files.filter(isImageFile);
       if (validImages.length === 0) return;
 
       const loaded = await Promise.all(
@@ -1021,23 +1045,12 @@ export default function App() {
     [activeDocument, updateActiveContent, appendBlockSnippet, showToast]
   );
 
-  const insertImageFile = insertImageFiles;
-
   // Process incoming files (both .md documents and images via Drag-and-Drop or File Picker)
   const processIncomingFiles = useCallback(
     (fileList: FileList | File[]) => {
       const files = Array.from(fileList);
-      const mdFiles = files.filter(
-        (f) =>
-          /\.(md|markdown|txt)$/i.test(f.name) ||
-          f.type === 'text/markdown' ||
-          f.type === 'text/plain'
-      );
-      const imageFiles = files.filter(
-        (f) =>
-          f.type.startsWith('image/') ||
-          /\.(png|jpe?g|webp|gif|svg)$/i.test(f.name)
-      );
+      const mdFiles = files.filter(isMarkdownFile);
+      const imageFiles = files.filter(isImageFile);
 
       if (mdFiles.length > 0) {
         openMarkdownFiles(mdFiles);

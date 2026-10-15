@@ -7,6 +7,11 @@
  * Les plugins sont importés dynamiquement pour ne rien charger hors de Tauri.
  */
 
+import {
+  IMAGE_EXTENSION_PATTERN,
+  MARKDOWN_EXTENSION_PATTERN,
+} from './fileTypes';
+
 const MARKDOWN_FILTER = [
   { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
 ];
@@ -120,11 +125,11 @@ const IMAGE_MIME: Record<string, string> = {
 };
 
 export function isMarkdownPath(path: string): boolean {
-  return /\.(md|markdown|txt)$/i.test(path);
+  return MARKDOWN_EXTENSION_PATTERN.test(path);
 }
 
 export function isImagePath(path: string): boolean {
-  return /\.(png|jpe?g|webp|gif|svg)$/i.test(path);
+  return IMAGE_EXTENSION_PATTERN.test(path);
 }
 
 /** Lit une image du disque et la renvoie sous forme de `File` (réutilisable par le code d'insertion d'images). */
