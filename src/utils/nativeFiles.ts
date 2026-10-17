@@ -99,7 +99,9 @@ export async function saveFileDialog(
 ): Promise<string | null> {
   const { save } = await import('@tauri-apps/plugin-dialog');
   const chosen = await save({ defaultPath, filters: MARKDOWN_FILTER });
-  return chosen ?? null;
+  if (!chosen) return null;
+  // Sans extension reconnue, on ajoute .md (seuls .md, .markdown et .txt peuvent être écrits)
+  return MARKDOWN_EXTENSION_PATTERN.test(chosen) ? chosen : `${chosen}.md`;
 }
 
 export async function readTextFromPath(path: string): Promise<string> {
@@ -107,12 +109,13 @@ export async function readTextFromPath(path: string): Promise<string> {
   return readTextFile(path);
 }
 
+/** Écrit une note sur le disque (commande Rust `write_text_file_at`, voir src-tauri/src/lib.rs). */
 export async function writeTextToPath(
   path: string,
   content: string
 ): Promise<void> {
-  const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-  await writeTextFile(path, content);
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('write_text_file_at', { path, content });
 }
 
 const IMAGE_MIME: Record<string, string> = {

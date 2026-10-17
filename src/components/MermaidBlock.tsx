@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useId } from 'react';
 import { loadMermaid } from '../utils/mermaidLoader';
+import { MERMAID_MIN_WIDTH } from '../utils/mermaidFence';
 import {
   Code2,
   Eye,
@@ -21,6 +22,10 @@ interface MermaidBlockProps {
   onChange?: (newCode: string) => void;
   onDelete?: () => void;
   isEditable?: boolean;
+  /** Largeur choisie (en % de la zone d'affichage) ; null = taille automatique d'origine */
+  widthPct?: number | null;
+  /** Appelé quand l'utilisateur relâche les poignées de redimensionnement */
+  onWidthChange?: (pct: number) => void;
 }
 
 export const MermaidBlock: React.FC<MermaidBlockProps> = ({
@@ -28,6 +33,8 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
   onChange,
   onDelete,
   isEditable = true,
+  widthPct = null,
+  onWidthChange,
 }) => {
   const [viewMode, setViewMode] = useState<'preview' | 'split' | 'code'>(
     isEditable ? 'preview' : 'preview'
@@ -38,6 +45,54 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
   const [copiedSvg, setCopiedSvg] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
+  // Redimensionnement à la souris (poignées aux coins du diagramme, comme pour les images)
+  const [liveWidth, setLiveWidth] = useState<number | null>(widthPct);
+  const [isResizing, setIsResizing] = useState(false);
+  const diagramRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!isResizing) setLiveWidth(widthPct);
+  }, [widthPct, isResizing]);
+
+  const handleResizeStart = (
+    e: React.MouseEvent,
+    side: 'left' | 'right'
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const diagram = diagramRef.current;
+    const area = diagram?.parentElement;
+    if (!diagram || !area) return;
+    const areaStyle = getComputedStyle(area);
+    const available =
+      area.clientWidth -
+      parseFloat(areaStyle.paddingLeft) -
+      parseFloat(areaStyle.paddingRight);
+    if (available <= 0) return;
+    const startX = e.clientX;
+    const startPct = (diagram.getBoundingClientRect().width / available) * 100;
+    let latest = Math.min(100, Math.max(MERMAID_MIN_WIDTH, Math.round(startPct)));
+    setIsResizing(true);
+    setLiveWidth(latest);
+
+    const onMove = (ev: MouseEvent) => {
+      // Le diagramme est centré : un déplacement de la poignée agrandit les deux côtés
+      const dx = side === 'right' ? ev.clientX - startX : startX - ev.clientX;
+      latest = Math.min(
+        100,
+        Math.max(MERMAID_MIN_WIDTH, Math.round(startPct + ((2 * dx) / available) * 100))
+      );
+      setLiveWidth(latest);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setIsResizing(false);
+      onWidthChange?.(latest);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   const rawId = useId().replace(/[^a-zA-Z0-9]/g, '');
   const renderCounter = useRef(0);
 
@@ -339,9 +394,37 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
           >
             {svgContent ? (
               <div
-                className="mermaid-svg-container max-w-full [&>svg]:mx-auto [&>svg]:h-auto [&>svg]:max-w-full"
-                dangerouslySetInnerHTML={{ __html: svgContent }}
-              />
+                ref={diagramRef}
+                className={`mermaid-svg-container relative max-w-full ${
+                  liveWidth !== null
+                    ? 'mx-auto [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:!w-full [&_svg]:!max-w-none'
+                    : '[&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full'
+                } ${isResizing ? 'ring-2 ring-[var(--adw-accent)] rounded' : ''}`}
+                style={liveWidth !== null ? { width: `${liveWidth}%` } : undefined}
+              >
+                <div dangerouslySetInnerHTML={{ __html: svgContent }} />
+                {isEditable && onWidthChange && (
+                  <>
+                    {(['left', 'right'] as const).map((side) => (
+                      <div
+                        key={side}
+                        onMouseDown={(e) => handleResizeStart(e, side)}
+                        title="Tirer pour redimensionner le diagramme"
+                        className={`absolute -bottom-2 ${
+                          side === 'left' ? '-left-2 cursor-nesw-resize' : '-right-2 cursor-nwse-resize'
+                        } z-10 h-3.5 w-3.5 rounded-full border-2 border-[var(--adw-accent)] bg-[var(--adw-card-bg)] shadow-sm ${
+                          isResizing ? 'opacity-100' : 'opacity-0 group-hover/diagram:opacity-100'
+                        } transition-opacity`}
+                      />
+                    ))}
+                    {isResizing && liveWidth !== null && (
+                      <div className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-full bg-[var(--adw-accent)] px-2 py-0.5 text-[11px] font-semibold text-white shadow">
+                        {liveWidth} %
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             ) : !renderError ? (
               <div className="flex items-center gap-2 text-xs text-[var(--adw-fg-muted)]">
                 <Workflow className="h-4 w-4 animate-spin text-[var(--adw-accent)]" />

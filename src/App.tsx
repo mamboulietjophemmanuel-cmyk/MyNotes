@@ -47,6 +47,7 @@ import { DiagramDialog } from './components/DiagramDialog';
 import { FindReplaceBar } from './components/FindReplaceBar';
 import {
   findMatches,
+  computeBlockSpans,
   replaceMatchAt,
   replaceAllMatches,
   compileSearchPattern,
@@ -73,6 +74,13 @@ import {
   writeTextToPath,
 } from './utils/nativeFiles';
 import { isImageFile, isMarkdownFile } from './utils/fileTypes';
+import {
+  DocHistory,
+  createHistory,
+  recordChange,
+  redoStep,
+  undoStep,
+} from './utils/history';
 
 // Les fichiers passés au lancement ne doivent être ouverts qu'une fois, même si l'interface se recharge
 let launchFilesHandled = false;
@@ -446,9 +454,23 @@ export default function App() {
   );
 
   // Update active document content and mark as modified (isDirty) if changed from savedContent
+  // Historique d'annulation, séparé pour chaque note
+  const historiesRef = useRef<Map<string, DocHistory>>(new Map());
+  const historyFor = useCallback((docId: string): DocHistory => {
+    let history = historiesRef.current.get(docId);
+    if (!history) {
+      history = createHistory();
+      historiesRef.current.set(docId, history);
+    }
+    return history;
+  }, []);
+
   const updateActiveContent = useCallback(
     (newContent: string) => {
       if (!activeDocument) return;
+      if (newContent !== activeDocument.content) {
+        recordChange(historyFor(activeDocument.id), activeDocument.content);
+      }
       const nowStr = new Date().toLocaleTimeString('fr-FR', {
         hour: '2-digit',
         minute: '2-digit',
@@ -466,7 +488,32 @@ export default function App() {
         })
       );
     },
-    [activeDocument]
+    [activeDocument, historyFor]
+  );
+
+  // Ctrl+Z / Ctrl+Y : revient au contenu précédent / suivant de la note active
+  const applyHistoryStep = useCallback(
+    (direction: 'undo' | 'redo') => {
+      if (!activeDocument) return;
+      const history = historyFor(activeDocument.id);
+      const restored =
+        direction === 'undo'
+          ? undoStep(history, activeDocument.content)
+          : redoStep(history, activeDocument.content);
+      if (restored === null) return;
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === activeDocument.id
+            ? {
+                ...doc,
+                content: restored,
+                isDirty: restored !== (doc.savedContent ?? doc.content),
+              }
+            : doc
+        )
+      );
+    },
+    [activeDocument, historyFor]
   );
 
   // Append block snippet to active document
@@ -484,7 +531,17 @@ export default function App() {
     if (!activeDocument?.content || !findQuery) {
       return { matches: [], regexError: null };
     }
-    return findMatches(activeDocument.content, findQuery, searchOptions);
+    // Les résultats doivent connaître le bloc qui les contient : c'est ce qui permet de les surligner
+    // et de faire défiler la page jusqu'à l'occurrence active.
+    const content = activeDocument.content;
+    const blocks = parseMarkdownIntoBlocks(content);
+    return findMatches(
+      content,
+      findQuery,
+      searchOptions,
+      blocks,
+      computeBlockSpans(content, blocks)
+    );
   }, [activeDocument?.content, findQuery, searchOptions]);
 
   const searchRegex = useMemo(() => {
@@ -794,6 +851,9 @@ export default function App() {
             } catch {
               // Fichier déplacé, dossier supprimé ou accès refusé : on propose « Enregistrer sous »
               path = undefined;
+              showToast(
+                'Impossible d’écrire dans le fichier d’origine : choisissez un nouvel emplacement.'
+              );
             }
           }
           if (!path) {
@@ -1193,6 +1253,11 @@ export default function App() {
         } else if (key === 'o') {
           e.preventDefault();
           void handleOpenFiles();
+        } else if (key === 'z' || key === 'y') {
+          // Les champs de saisie simples (recherche, légende, langage) gardent leur annulation native
+          if (e.target instanceof HTMLInputElement) return;
+          e.preventDefault();
+          applyHistoryStep(key === 'y' || e.shiftKey ? 'redo' : 'undo');
         } else if (key === 'w') {
           e.preventDefault();
           if (activeDocument) handleCloseTab(activeDocument.id);
@@ -1224,6 +1289,7 @@ export default function App() {
   }, [
     handleDownloadMarkdown,
     handleOpenFiles,
+    applyHistoryStep,
     handleCreateNewDocument,
     handleCloseTab,
     activeDocument,

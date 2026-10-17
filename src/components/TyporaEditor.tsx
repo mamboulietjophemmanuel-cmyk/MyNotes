@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { MermaidBlock } from './MermaidBlock';
 import { HighlightedCodeEditor } from './HighlightedCodeEditor';
+import { buildMermaidFence, parseMermaidInfo } from '../utils/mermaidFence';
 import { isImageFile, isImageUrl, isMarkdownFile } from '../utils/fileTypes';
 import { SearchMatch } from '../utils/searchEngine';
 
@@ -252,10 +253,12 @@ export function parseMarkdownIntoBlocks(markdown: string): MdBlock[] {
       buf.push(lines[i]);
       i++;
     }
+    // Une ligne « <br> » seule est une ligne vide voulue par l'utilisateur (voir serializeBlocksToMarkdown)
+    const isBlankLine = buf.length === 1 && /^<br\s*\/?>$/i.test(buf[0].trim());
     blocks.push({
       id: `blk-${startLine}`,
       type: 'paragraph',
-      raw: buf.join('\n'),
+      raw: isBlankLine ? '' : buf.join('\n'),
       startLine,
     });
   }
@@ -272,8 +275,18 @@ export function parseMarkdownIntoBlocks(markdown: string): MdBlock[] {
   return blocks;
 }
 
+/**
+ * Le Markdown ignore les lignes vides : un paragraphe vide au milieu du document disparaîtrait
+ * à la réouverture. Il est donc écrit « <br> » (rendu comme une ligne vide par tous les lecteurs
+ * Markdown) et relu comme un paragraphe vide. Les paragraphes vides à la toute fin sont omis.
+ */
 export function serializeBlocksToMarkdown(blocks: MdBlock[]): string {
-  return blocks.map((b) => b.raw).join('\n\n');
+  let last = blocks.length - 1;
+  while (last >= 0 && blocks[last].raw.trim() === '') last--;
+  return blocks
+    .slice(0, last + 1)
+    .map((b) => (b.raw.trim() === '' ? '<br>' : b.raw))
+    .join('\n\n');
 }
 
 function renderLatexInline(latex: string, displayMode: boolean): string {
@@ -745,6 +758,36 @@ const AutoTextarea: React.FC<{
       }
     }
 
+    // Tab : grand espace dans le texte, imbrication dans une liste (Maj+Tab pour revenir en arrière)
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+      const lineBreak = value.indexOf('\n', selectionStart);
+      const lineEnd = lineBreak === -1 ? value.length : lineBreak;
+      const currentLine = value.slice(lineStart, lineEnd);
+      const isListLine = /^\s*([-*+]|\d+\.)\s/.test(currentLine);
+
+      if (e.shiftKey) {
+        const lead = currentLine.match(/^( {1,2}|\t)/);
+        if (!lead) return;
+        const removed = lead[0].length;
+        const next = value.slice(0, lineStart) + value.slice(lineStart + removed);
+        applyProgrammaticChange(
+          next,
+          Math.max(lineStart, selectionStart - removed),
+          Math.max(lineStart, selectionEnd - removed)
+        );
+      } else if (isListLine) {
+        const next = value.slice(0, lineStart) + '  ' + value.slice(lineStart);
+        applyProgrammaticChange(next, selectionStart + 2, selectionEnd + 2);
+      } else {
+        const next =
+          value.slice(0, selectionStart) + '\t' + value.slice(selectionEnd);
+        applyProgrammaticChange(next, selectionStart + 1);
+      }
+      return;
+    }
+
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault();
       const next =
@@ -886,7 +929,7 @@ const AutoTextarea: React.FC<{
         onBlur={onBlur}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        className={`inline whitespace-pre-wrap break-words rounded bg-[var(--adw-accent-soft)]/30 px-1 -mx-1 py-0.5 box-decoration-clone caret-[var(--adw-accent)] focus:outline-none ${className}`}
+        className={`inline whitespace-pre-wrap [tab-size:4] break-words rounded bg-[var(--adw-accent-soft)]/30 px-1 -mx-1 py-0.5 box-decoration-clone caret-[var(--adw-accent)] focus:outline-none ${className}`}
       />
       {!value && placeholder && (
         <span
@@ -1329,6 +1372,14 @@ const WysiwygImageBlock: React.FC<{
   const [liveSide, setLiveSide] = useState<ImageWrapSide>(parsed.wrapSide);
   const [isDraggingPos, setIsDraggingPos] = useState<boolean>(false);
   const [wrapMenuOpen, setWrapMenuOpen] = useState<boolean>(false);
+  // La légende est enregistrée sans espaces aux extrémités ; on garde donc une copie locale pendant la saisie,
+  // sinon l'espace tapé après un mot serait aussitôt supprimé.
+  const [captionDraft, setCaptionDraft] = useState<string>(parsed.caption);
+  useEffect(() => {
+    setCaptionDraft((prev) =>
+      prev.trim() === parsed.caption ? prev : parsed.caption
+    );
+  }, [parsed.caption]);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const onChangeRef = useRef(onChange);
@@ -1621,11 +1672,14 @@ const WysiwygImageBlock: React.FC<{
       <div className="pointer-events-auto relative z-30 mt-2 flex items-center justify-between gap-1.5 px-0.5 text-xs">
         <input
           type="text"
-          value={parsed.caption}
+          value={captionDraft}
           onChange={(e) => {
+            // « | » et « ] » sont réservés à la syntaxe de l'image
+            const typed = e.target.value.replace(/[|\]]/g, '');
+            setCaptionDraft(typed);
             onChange(
               serializeImageMarkdown(
-                e.target.value,
+                typed.trim(),
                 liveWidth,
                 parsed.wrapMode,
                 liveSide,
@@ -2220,13 +2274,21 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
             .join('\n');
 
           // If language is mermaid, render with dedicated interactive MermaidBlock
-          if (lang.toLowerCase() === 'mermaid') {
+          const mermaidInfo = parseMermaidInfo(lang);
+          if (mermaidInfo.isMermaid) {
             return (
               <div key={block.id} data-block-idx={idx}>
                 <MermaidBlock
                   code={innerCode}
                   onChange={(newCode) =>
-                    updateBlockAt(idx, `\`\`\`mermaid\n${newCode}\n\`\`\``)
+                    updateBlockAt(
+                      idx,
+                      buildMermaidFence(newCode, mermaidInfo.widthPct)
+                    )
+                  }
+                  widthPct={mermaidInfo.widthPct}
+                  onWidthChange={(pct) =>
+                    updateBlockAt(idx, buildMermaidFence(innerCode, pct))
                   }
                   onDelete={() => deleteBlockAt(idx)}
                   isEditable={true}
@@ -2547,7 +2609,7 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
               setLastClickPoint({ x: e.clientX, y: e.clientY });
               setFocusedIndex(idx);
             }}
-            className="cursor-text rounded-lg py-0.5 transition-colors min-h-[1.7em]"
+            className="cursor-text whitespace-pre-wrap [tab-size:4] rounded-lg py-0.5 transition-colors min-h-[1.7em]"
           >
             {block.raw.trim() ? (
               renderInlineFormatting(
@@ -2559,10 +2621,12 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
                 activeMatch,
                 idx
               )
-            ) : (
+            ) : idx === blocks.length - 1 ? (
               <span className="text-[var(--adw-fg-muted)] opacity-60">
                 Cliquez pour rédiger votre note...
               </span>
+            ) : (
+              <span aria-hidden="true">&nbsp;</span>
             )}
           </p>
         );
@@ -2637,10 +2701,10 @@ export const TyporaEditor: React.FC<TyporaEditorProps> = ({
           )}
 
       {/* Subtle Typora-style bottom insertion bar on hover */}
-      <div className="group mt-8 flex items-center justify-center gap-2 py-4 opacity-0 transition-opacity hover:opacity-100">
+      <div className="group clear-both mt-8 flex items-center justify-center gap-2 py-4 opacity-0 transition-opacity hover:opacity-100">
         <button
           type="button"
-          onClick={() => insertBlockBelow(blocks.length - 1, 'Nouveau paragraphe...')}
+          onClick={() => insertBlockBelow(blocks.length - 1, '')}
           className="adw-btn border border-[var(--adw-border)] bg-[var(--adw-card-bg)] px-2.5 py-1 text-xs text-[var(--adw-fg-secondary)]"
         >
           <Plus className="h-3.5 w-3.5" />

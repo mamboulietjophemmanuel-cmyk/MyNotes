@@ -24,17 +24,21 @@
   --adw-accent-hover: #1C71D8;
   --adw-accent-soft: rgba(53, 132, 228, 0.12);
   --adw-code-bg: #F4F4F6;
-  /* Coloration syntaxique (palette GNOME, thème clair) */
-  --hl-keyword: #8a2fa6;
-  --hl-string: #1a7f4b;
-  --hl-number: #b8470c;
-  --hl-comment: #6e6e76;
-  --hl-function: #1c5fb5;
-  --hl-type: #0e7490;
-  --hl-attr: #9a5b00;
-  --hl-meta: #a3365f;
-  --hl-addition: #1a7f4b;
-  --hl-deletion: #c01c28;
+  /* Coloration syntaxique : palette « Light+ » de VS Code */
+  --hl-keyword: #0000FF;
+  --hl-control: #AF00DB;
+  --hl-string: #A31515;
+  --hl-regexp: #811F3F;
+  --hl-number: #098658;
+  --hl-comment: #008000;
+  --hl-function: #795E26;
+  --hl-type: #267F99;
+  --hl-variable: #001080;
+  --hl-tag: #800000;
+  --hl-attr-name: #E50000;
+  --hl-selector: #800000;
+  --hl-addition: #098658;
+  --hl-deletion: #A31515;
   --adw-shadow-popover: 0 8px 28px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.25);
 }
 
@@ -58,17 +62,21 @@
   --adw-accent-hover: #62A0EA;
   --adw-accent-soft: rgba(98, 160, 234, 0.18);
   --adw-code-bg: #28282C;
-  /* Coloration syntaxique (palette GNOME, thème sombre) */
-  --hl-keyword: #dc8add;
-  --hl-string: #8ff0a4;
-  --hl-number: #ffbe6f;
-  --hl-comment: #9a9996;
-  --hl-function: #78aeed;
-  --hl-type: #93ddc2;
-  --hl-attr: #f9f06b;
-  --hl-meta: #f66151;
-  --hl-addition: #8ff0a4;
-  --hl-deletion: #ff938c;
+  /* Coloration syntaxique : palette « Dark+ » de VS Code */
+  --hl-keyword: #569CD6;
+  --hl-control: #C586C0;
+  --hl-string: #CE9178;
+  --hl-regexp: #D16969;
+  --hl-number: #B5CEA8;
+  --hl-comment: #6A9955;
+  --hl-function: #DCDCAA;
+  --hl-type: #4EC9B0;
+  --hl-variable: #9CDCFE;
+  --hl-tag: #569CD6;
+  --hl-attr-name: #9CDCFE;
+  --hl-selector: #D7BA7D;
+  --hl-addition: #B5CEA8;
+  --hl-deletion: #CE9178;
   --adw-shadow-popover: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
@@ -363,19 +371,29 @@ body {
 
 /* =====================================================================
    COLORATION SYNTAXIQUE DES BLOCS DE CODE (classes générées par highlight.js)
+   Couleurs inspirées de VS Code (Light+ / Dark+), définies plus haut.
    ===================================================================== */
 .hljs-keyword,
-.hljs-selector-tag,
 .hljs-literal,
-.hljs-doctag {
+.hljs-doctag,
+.hljs-link {
   color: var(--hl-keyword);
 }
 
+/* Mots de contrôle (if, return, import…) : violet, comme dans VS Code */
+.hljs-keyword.hljs-control,
+.hljs-meta {
+  color: var(--hl-control);
+}
+
 .hljs-string,
-.hljs-regexp,
 .hljs-template-variable,
-.hljs-char.escape_ {
+.hljs-meta .hljs-string {
   color: var(--hl-string);
+}
+
+.hljs-regexp {
+  color: var(--hl-regexp);
 }
 
 .hljs-number,
@@ -387,36 +405,52 @@ body {
 .hljs-comment,
 .hljs-quote {
   color: var(--hl-comment);
-  font-style: italic;
 }
 
 .hljs-title,
-.hljs-title.function_,
-.hljs-section,
-.hljs-selector-id {
+.hljs-title.function_ {
   color: var(--hl-function);
+}
+
+.hljs-section {
+  color: var(--hl-keyword);
+  font-weight: 700;
 }
 
 .hljs-type,
 .hljs-built_in,
 .hljs-title.class_,
-.hljs-class .hljs-title,
-.hljs-selector-class {
+.hljs-title.class_.inherited__,
+.hljs-class .hljs-title {
   color: var(--hl-type);
 }
 
-.hljs-attr,
-.hljs-attribute,
 .hljs-variable,
 .hljs-property,
-.hljs-name {
-  color: var(--hl-attr);
+.hljs-variable.language_ {
+  color: var(--hl-variable);
 }
 
-.hljs-meta,
-.hljs-tag,
-.hljs-link {
-  color: var(--hl-meta);
+.hljs-variable.language_ {
+  color: var(--hl-keyword);
+}
+
+.hljs-attr,
+.hljs-attribute {
+  color: var(--hl-attr-name);
+}
+
+.hljs-name,
+.hljs-tag {
+  color: var(--hl-tag);
+}
+
+.hljs-selector-tag,
+.hljs-selector-class,
+.hljs-selector-id,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: var(--hl-selector);
 }
 
 .hljs-addition {

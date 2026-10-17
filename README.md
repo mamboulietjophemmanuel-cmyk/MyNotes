@@ -60,6 +60,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 * **Positionnement intelligent du curseur** : Cliquez sur n'importe quel mot d'un paragraphe rendu pour basculer en mode édition avec le curseur placé **exactement** sur la lettre cliquée.
 * **Mise en forme en ligne** : **gras** (`**`), *italique* (`*`), ~~barré~~ (`~~`), `code` (`` ` ``), liens et formules `$...$` sont rendus dans le texte. Raccourcis `Ctrl + B` et `Ctrl + I` pour le gras et l'italique.
 * **Menu « Insérer »** : ajoutez en un clic un tableau, une formule LaTeX, un diagramme Mermaid ou une image.
+* **Lignes vides conservées** : un paragraphe laissé vide entre deux blocs est enregistré sous la forme `<br>`, que tous les lecteurs Markdown affichent comme une ligne vide. Le « Nouveau paragraphe » est créé vide, sans texte à effacer.
 * **Listes de tâches interactives** : Cochez ou décochez vos `todo-lists` (`- [ ]` / `- [x]`) directement dans l'aperçu sans ouvrir le code source.
 
 <!-- EMPLACEMENT VISUEL 1 : GIF de l'édition hybride & barre flottante -->
@@ -96,6 +97,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 ---
 
 ### 5. 🔀 Diagrammes & Schémas Vectoriels (Mermaid.js)
+* **Diagrammes redimensionnables** : tirez les poignées aux coins d'un diagramme pour changer sa taille, comme pour une image. La largeur est enregistrée dans la ligne d'ouverture (` ```mermaid 60% `), que les autres lecteurs Markdown ignorent sans problème.
 * **Rendu vectoriel direct** : Les blocs ` ```mermaid ` sont automatiquement interprétés et rendus sous forme d'illustrations vectorielles SVG interactives.
 * **Assistant & Bibliothèque de modèles** : Insertion en 1 clic de schémas prêts à l'emploi :
   * **Organigrammes & Flux** (`flowchart TD / LR`)
@@ -125,7 +127,7 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 
 ### 7. 💻 Blocs de Code & Productivité Développeur
 * **Blocs de code stylisés (` ```langage `)** : Affichage automatique du badge de langage (`python`, `typescript`, `rust`, `sql`, `json`, etc.).
-* **Coloration syntaxique en direct** : le code est coloré pendant la saisie selon le langage indiqué après les trois accents graves (` ```python `), en thème clair comme en thème sombre. Une quarantaine de langages sont reconnus, avec leurs abréviations courantes : `c`, `cpp` / `c++`, `arduino` / `ino`, `python` / `py`, `java`, `javascript` / `js`, `typescript` / `ts`, `sql`, `bash` / `sh`, `powershell`, `json`, `yaml`, `html` / `xml`, `css` / `scss`, `php`, `rust`, `go`, `kotlin`, `csharp` / `cs`, `latex`, `vhdl`, `verilog`, `x86asm`, etc. Sans langage (ou avec un langage inconnu), le code reste sans couleur. Les lignes longues défilent horizontalement.
+* **Coloration syntaxique en direct** : le code est coloré pendant la saisie selon le langage indiqué après les trois accents graves (` ```python `), avec les couleurs de VS Code (*Light+* en thème clair, *Dark+* en thème sombre). Dans un bloc de code, `Tab` indente de 4 espaces, `Maj + Tab` désindente (même sur plusieurs lignes) et `Entrée` conserve l'indentation de la ligne. Une quarantaine de langages sont reconnus, avec leurs abréviations courantes : `c`, `cpp` / `c++`, `arduino` / `ino`, `python` / `py`, `java`, `javascript` / `js`, `typescript` / `ts`, `sql`, `bash` / `sh`, `powershell`, `json`, `yaml`, `html` / `xml`, `css` / `scss`, `php`, `rust`, `go`, `kotlin`, `csharp` / `cs`, `latex`, `vhdl`, `verilog`, `x86asm`, etc. Sans langage (ou avec un langage inconnu), le code reste sans couleur. Les lignes longues défilent horizontalement.
 * **Copie rapide en un clic** : Bouton **Copier** intégré dans l'en-tête de chaque bloc de code avec confirmation visuelle.
 
 ---
@@ -174,6 +176,9 @@ Les éditeurs Markdown classiques vous obligent souvent à choisir entre **deux 
 | `Ctrl + I` | Mettre la sélection en *Italique* |
 | `Entrée` | Valider le bloc en cours d'édition |
 | `Maj + Entrée` | Insérer un saut de ligne dans le bloc |
+| `Tab` / `Maj + Tab` | Insérer une tabulation dans le texte ; imbriquer / désimbriquer un élément de liste |
+| `Ctrl + Z` | Annuler la dernière modification de la note |
+| `Ctrl + Y` / `Ctrl + Maj + Z` | Rétablir la modification annulée |
 | `Retour arrière (Backspace)` | Fusionner le paragraphe actuel avec le paragraphe précédent (en début de bloc) |
 | `Échap (Esc)` | Fermer la recherche ou quitter l'édition du bloc actif |
 

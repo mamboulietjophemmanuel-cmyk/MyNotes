@@ -83,6 +83,25 @@ export function resolveLanguage(language: string): string | null {
   return alias && hljs.getLanguage(alias) ? alias : null;
 }
 
+// Mots-clés de contrôle de flux et de modules : colorés en violet (comme dans VS Code),
+// les autres mots-clés (const, function, class…) restant en bleu.
+const CONTROL_KEYWORDS = new Set([
+  'if', 'else', 'elif', 'for', 'foreach', 'while', 'do', 'switch', 'case', 'default',
+  'break', 'continue', 'return', 'try', 'catch', 'except', 'finally', 'throw', 'raise',
+  'import', 'export', 'from', 'await', 'yield', 'goto', 'with', 'assert', 'when',
+  'package', 'using', 'include', 'require',
+]);
+
+function markControlKeywords(html: string): string {
+  return html.replace(
+    /<span class="hljs-keyword">([^<]+)<\/span>/g,
+    (match, word: string) =>
+      CONTROL_KEYWORDS.has(word)
+        ? `<span class="hljs-keyword hljs-control">${word}</span>`
+        : match
+  );
+}
+
 /**
  * Renvoie le code coloré sous forme de HTML (le texte est échappé par highlight.js),
  * ou null si le langage est vide ou inconnu : le code s'affiche alors sans couleur.
@@ -91,7 +110,9 @@ export function highlightCode(code: string, language: string): string | null {
   const name = resolveLanguage(language);
   if (!name) return null;
   try {
-    return hljs.highlight(code, { language: name, ignoreIllegals: true }).value;
+    return markControlKeywords(
+      hljs.highlight(code, { language: name, ignoreIllegals: true }).value
+    );
   } catch {
     return null;
   }

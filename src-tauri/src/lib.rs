@@ -40,6 +40,21 @@ fn markdown_files_from_args<R: tauri::Runtime>(
   files
 }
 
+/// Écrit une note sur le disque.
+///
+/// L'écriture passe par cette commande plutôt que par le plugin « fs » : le système de droits du plugin
+/// peut refuser de réécrire un fichier créé pendant la session (le chemin autorisé à la création, quand
+/// le fichier n'existait pas encore, ne correspond plus une fois le fichier créé). Résultat : « Enregistrer »
+/// rouvrait « Enregistrer sous ». Par sécurité, seuls les fichiers .md, .markdown et .txt sont acceptés.
+#[tauri::command]
+fn write_text_file_at(path: String, content: String) -> Result<(), String> {
+  let lower = path.to_lowercase();
+  if !(lower.ends_with(".md") || lower.ends_with(".markdown") || lower.ends_with(".txt")) {
+    return Err("Seuls les fichiers .md, .markdown et .txt peuvent être enregistrés.".into());
+  }
+  std::fs::write(&path, content).map_err(|e| format!("Impossible d'écrire « {path} » : {e}"))
+}
+
 /// Fichiers passés à MyNotes au moment de son lancement (appelé une fois par l'interface au démarrage).
 #[tauri::command]
 fn get_launch_files(app: tauri::AppHandle) -> Vec<String> {
@@ -75,7 +90,7 @@ pub fn run() {
   builder
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
-    .invoke_handler(tauri::generate_handler![close_app, get_launch_files])
+    .invoke_handler(tauri::generate_handler![close_app, get_launch_files, write_text_file_at])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

@@ -51,6 +51,37 @@ export function compileSearchPattern(
   }
 }
 
+export type BlockSpan = { start: number; end: number } | null;
+
+/**
+ * Position réelle de chaque bloc dans le texte source (le texte peut contenir plusieurs lignes
+ * vides ou des fins de ligne Windows entre les blocs, on ne suppose donc pas un séparateur fixe).
+ * Renvoie null pour un bloc introuvable.
+ */
+export function computeBlockSpans(
+  content: string,
+  blocks: { raw: string }[]
+): BlockSpan[] {
+  const hasCrLf = content.includes('\r\n');
+  const spans: BlockSpan[] = [];
+  let cursor = 0;
+  for (const block of blocks) {
+    let raw = block.raw;
+    let pos = content.indexOf(raw, cursor);
+    if (pos === -1 && hasCrLf) {
+      raw = block.raw.replace(/\n/g, '\r\n');
+      pos = content.indexOf(raw, cursor);
+    }
+    if (pos === -1) {
+      spans.push(null);
+      continue;
+    }
+    spans.push({ start: pos, end: pos + raw.length });
+    cursor = pos + raw.length;
+  }
+  return spans;
+}
+
 /**
  * Finds all occurrences of the query in the markdown text and correlates them with block indices.
  */
@@ -58,7 +89,8 @@ export function findMatches(
   text: string,
   query: string,
   options: SearchOptions,
-  blocks?: { raw: string }[]
+  blocks?: { raw: string }[],
+  blockSpans?: BlockSpan[]
 ): SearchResult {
   if (!query || !text) {
     return { matches: [], regexError: null };
@@ -75,7 +107,11 @@ export function findMatches(
 
   // Pre-calculate block start/end boundaries if blocks are supplied
   const blockOffsets: { start: number; end: number; blockIndex: number }[] = [];
-  if (blocks && blocks.length > 0) {
+  if (blockSpans && blockSpans.length > 0) {
+    blockSpans.forEach((span, b) => {
+      if (span) blockOffsets.push({ start: span.start, end: span.end, blockIndex: b });
+    });
+  } else if (blocks && blocks.length > 0) {
     let curr = 0;
     for (let b = 0; b < blocks.length; b++) {
       const len = blocks[b].raw.length;
